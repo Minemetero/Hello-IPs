@@ -64,7 +64,7 @@ jobs:
         id: extract_hash
         shell: bash
         run: |
-          HASH=$(grep -oP '[A-Fa-f0-9]{64}' sha256sum.txt)
+          HASH=$(grep -Eo '[A-Fa-f0-9]{64}' sha256sum.txt | head -n 1)
           echo "sha256=$HASH" >> "$GITHUB_OUTPUT"
 
       - name: 🗑️ Delete existing release and tag (if any)
