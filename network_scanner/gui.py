@@ -42,7 +42,8 @@ class NetworkScannerApp:
         self.block_button = tk.Button(self.control_frame, text="Block Selected Device", command=self.block_selected_device, width=20)
         self.block_button.grid(row=0, column=5, padx=5)
 
-        self.probe_checkbox = tk.Checkbutton(self.control_frame, text="Probe Open Ports", variable=tk.BooleanVar(value=True))
+        self.probe_var = tk.BooleanVar(value=True)
+        self.probe_checkbox = tk.Checkbutton(self.control_frame, text="Probe Open Ports", variable=self.probe_var)
         self.probe_checkbox.grid(row=0, column=6, padx=5)
         
         self.tip_label = tk.Label(master, text="", font=("Helvetica", 10, "italic"))
@@ -72,7 +73,7 @@ class NetworkScannerApp:
         self.network = ip_range
         devices = scan_network(ip_range, mac_prefixes)
         # Probe open ports if enabled.
-        if self.probe_checkbox.var.get():
+        if self.probe_var.get():
             with ThreadPoolExecutor(max_workers=10) as executor:
                 future_map = {executor.submit(probe_open_ports, device["ip"]): device for device in devices}
                 for future in as_completed(future_map):
