@@ -28,7 +28,7 @@ jobs:
       - name: 🔨 Build executable with Nuitka
         shell: powershell
         env:
-          NUITKA_ACCEPT_DOWNLOADS: "yes"
+          NUITKA_DO_NOT_ALLOW_DOWNLOADS: "no"
         run: |
           nuitka main.py `
             --standalone `
