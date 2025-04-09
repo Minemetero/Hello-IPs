@@ -1,0 +1,21 @@
+# Virtual environment directories
+venv/
+.env/
+ENV/
+
+# Output directories for temporary files
+output/
+out/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# System-specific files
+.DS_Store
+Thumbs.db
