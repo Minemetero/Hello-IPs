@@ -28,12 +28,12 @@ jobs:
       - name: 📥 Pre-install Dependency Walker
         shell: powershell
         run: |
-            $dependsUrl = "https://dependencywalker.com/depends22_x64.zip"
-            $zipPath = "$env:TEMP\depends.zip"
-            $extractPath = "$env:LOCALAPPDATA\Nuitka\Nuitka\Cache\downloads\depends\x86_64"
-            Invoke-WebRequest -Uri $dependsUrl -OutFile $zipPath
-            Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
-            Write-Host "✅ Dependency Walker installed at $extractPath"
+          $dependsUrl = "https://dependencywalker.com/depends22_x64.zip"
+          $zipPath = "$env:TEMP\depends.zip"
+          $extractPath = "$env:LOCALAPPDATA\Nuitka\Nuitka\Cache\downloads\depends\x86_64"
+          Invoke-WebRequest -Uri $dependsUrl -OutFile $zipPath
+          Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+          Write-Host "✅ Dependency Walker installed at $extractPath"
 
       - name: 🔨 Build executable with Nuitka
         shell: powershell
@@ -59,3 +59,35 @@ jobs:
           path: |
             hello_ips.exe
             sha256sum.txt
+
+      - name: 🧾 Extract SHA256 for release notes
+        id: extract_hash
+        shell: bash
+        run: |
+          HASH=$(grep -oP '[A-Fa-f0-9]{64}' sha256sum.txt)
+          echo "sha256=$HASH" >> "$GITHUB_OUTPUT"
+
+      - name: 🗑️ Delete existing release and tag (if any)
+        run: |
+          gh release delete build -y || echo "No release to delete"
+          git push --delete origin build || echo "No tag to delete"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🚀 Create or Update Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: build
+          name: build
+          body: |
+            This is the latest auto build.
+
+            SHA-256: ${{ steps.extract_hash.outputs.sha256 }}
+            Commit: ${{ github.sha }}
+          draft: false
+          prerelease: false
+          files: |
+            hello_ips.exe
+            sha256sum.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
