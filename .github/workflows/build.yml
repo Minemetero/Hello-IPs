@@ -26,8 +26,10 @@ jobs:
           pip install nuitka scapy
 
           - name: 🔨 Build executable with Nuitka
+          shell: powershell
+          env:
+            NUITKA_ACCEPT_DOWNLOADS: "yes"
           run: |
-            $env:NUITKA_ACCEPT_DOWNLOADS="yes"
             nuitka main.py `
               --standalone `
               --onefile `
@@ -35,7 +37,7 @@ jobs:
               --include-data-dir=data=data `
               --windows-console-mode=disable `
               --output-filename=hello_ips.exe
-          shell: powershell
+        
 
       - name: 📎 Calculate SHA-256 Hash
         shell: powershell
