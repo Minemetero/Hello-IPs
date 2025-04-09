@@ -17,7 +17,7 @@ class NetworkScannerApp:
         style = ttk.Style()
         style.theme_use("clam")
 
-        header = tk.Label(master, text="LAN Device Scanner", font=("Helvetica", 20, "bold"))
+        header = tk.Label(master, text="Hello-IPs", font=("Helvetica", 20, "bold"))
         header.pack(pady=10)
 
         self.control_frame = tk.Frame(master)
@@ -61,7 +61,7 @@ class NetworkScannerApp:
     def run_scan(self):
         self.scan_button.config(state="disabled")
         self.tree.delete(*self.tree.get_children())
-        self.tip_label.config(text="Scanning network, please wait...")
+        self.tip_label.config(text="Scanning will take about two minutes, please be patient.")
         self.master.update()
         threading.Thread(target=self.thread_scan, daemon=True).start()
 
