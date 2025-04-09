@@ -49,7 +49,8 @@ jobs:
       - name: 📎 Calculate SHA-256 Hash
         shell: powershell
         run: |
-          Get-FileHash hello_ips.exe -Algorithm SHA256 | Format-List > sha256sum.txt
+          $hash = Get-FileHash hello_ips.exe -Algorithm SHA256
+          $hash.Hash | Out-File -FilePath sha256sum.txt -Encoding ascii
           Get-Content sha256sum.txt
 
       - name: 📤 Upload executable and hash
@@ -62,10 +63,10 @@ jobs:
 
       - name: 🧾 Extract SHA256 for release notes
         id: extract_hash
-        shell: bash
+        shell: powershell
         run: |
-          HASH=$(grep -Eo '[A-Fa-f0-9]{64}' sha256sum.txt | head -n 1)
-          echo "sha256=$HASH" >> "$GITHUB_OUTPUT"
+          $hash = Get-Content sha256sum.txt
+          "sha256=$hash" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding ascii -Append
 
       - name: 🗑️ Delete existing release and tag (if any)
         run: |
