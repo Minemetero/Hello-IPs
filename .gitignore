@@ -1,5 +1,6 @@
 # Virtual environment directories
 venv/
+.venv/
 .env/
 ENV/
 
@@ -19,3 +20,29 @@ __pycache__/
 # System-specific files
 .DS_Store
 Thumbs.db
+
+# Nuitka build output
+*.dist/
+*.build/
+*.exe
+*.dll
+*.so
+*.o
+*.pyd
+*.manifest
+*.exp
+*.lib
+*.obj
+*.bin
+
+# Nuitka cache and generated source files
+__nuitka_build__/
+.nuitka-cache/
+*.c
+*.cpp
+*.h
+*.tmp
+
+# General binary output
+build/
+dist/
