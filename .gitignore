@@ -7,6 +7,7 @@ ENV/
 # Output directories for temporary files
 output/
 out/
+main.onefile-build/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
