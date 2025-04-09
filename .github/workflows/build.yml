@@ -1,0 +1,62 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    name: Build & Test with Nuitka
+    runs-on: windows-latest
+
+    steps:
+      - name: 🧾 Checkout code
+        uses: actions/checkout@v3
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install nuitka pytest flake8 bandit scapy
+
+      - name: 🛡 Security scan (Bandit)
+        run: |
+          bandit -r . -x .venv,__pycache__,data,build,dist
+
+      - name: 🔍 Code style and error check (Flake8)
+        run: |
+          flake8 . --exclude=.venv,__pycache__,build,dist,data --max-line-length=120
+
+      - name: 🧪 Run tests (pytest)
+        run: |
+          pytest tests
+
+      - name: 🔨 Build executable with Nuitka
+        run: |
+          nuitka main.py `
+            --standalone `
+            --onefile `
+            --enable-plugin=tk-inter `
+            --include-data-dir=data=data `
+            --windows-console-mode=disable `
+            --output-filename=hello_ips.exe
+
+      - name: 📎 Calculate SHA-256 Hash
+        shell: powershell
+        run: |
+          Get-FileHash hello_ips.exe -Algorithm SHA256 | Format-List > sha256sum.txt
+          Get-Content sha256sum.txt
+
+      - name: 📤 Upload executable and hash
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            hello_ips.exe
+            sha256sum.txt
