@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build & Test with Nuitka
+    name: Build with Nuitka
     runs-on: windows-latest
 
     steps:
@@ -33,7 +33,8 @@ jobs:
             --enable-plugin=tk-inter `
             --include-data-dir=data=data `
             --windows-console-mode=disable `
-            --output-filename=hello_ips.exe
+            --output-filename=hello_ips.exe `
+            --accept-downloads
 
       - name: 📎 Calculate SHA-256 Hash
         shell: powershell
