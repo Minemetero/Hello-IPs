@@ -27,8 +27,6 @@ jobs:
 
       - name: 🔨 Build executable with Nuitka
         shell: powershell
-        env:
-          NUITKA_DO_NOT_ALLOW_DOWNLOADS: "no"
         run: |
           nuitka main.py `
             --standalone `
@@ -36,7 +34,9 @@ jobs:
             --enable-plugin=tk-inter `
             --include-data-dir=data=data `
             --windows-console-mode=disable `
-            --output-filename=hello_ips.exe
+            --output-filename=hello_ips.exe `
+            --noinclude-default-mode=depends.exe
+
 
       - name: 📎 Calculate SHA-256 Hash
         shell: powershell
