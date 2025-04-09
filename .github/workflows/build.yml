@@ -69,9 +69,19 @@ jobs:
           "sha256=$hash" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding ascii -Append
 
       - name: 🗑️ Delete existing release and tag (if any)
+        shell: pwsh
         run: |
-          gh release delete build -y || echo "No release to delete"
-          git push --delete origin build || echo "No tag to delete"
+          try {
+            gh release delete build -y
+          } catch {
+            Write-Host "No release to delete"
+          }
+      
+          try {
+            git push --delete origin build
+          } catch {
+            Write-Host "No tag to delete"
+          }
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
