@@ -25,19 +25,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install nuitka scapy
 
-          - name: 🔨 Build executable with Nuitka
-          shell: powershell
-          env:
-            NUITKA_ACCEPT_DOWNLOADS: "yes"
-          run: |
-            nuitka main.py `
-              --standalone `
-              --onefile `
-              --enable-plugin=tk-inter `
-              --include-data-dir=data=data `
-              --windows-console-mode=disable `
-              --output-filename=hello_ips.exe
-        
+      - name: 🔨 Build executable with Nuitka
+        shell: powershell
+        env:
+          NUITKA_ACCEPT_DOWNLOADS: "yes"
+        run: |
+          nuitka main.py `
+            --standalone `
+            --onefile `
+            --enable-plugin=tk-inter `
+            --include-data-dir=data=data `
+            --windows-console-mode=disable `
+            --output-filename=hello_ips.exe
 
       - name: 📎 Calculate SHA-256 Hash
         shell: powershell
