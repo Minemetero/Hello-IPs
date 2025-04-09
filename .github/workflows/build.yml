@@ -25,6 +25,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install nuitka scapy
 
+      - name: 📥 Pre-install Dependency Walker
+        shell: powershell
+        run: |
+            $dependsUrl = "https://dependencywalker.com/depends22_x64.zip"
+            $zipPath = "$env:TEMP\depends.zip"
+            $extractPath = "$env:LOCALAPPDATA\Nuitka\Nuitka\Cache\downloads\depends\x86_64"
+            Invoke-WebRequest -Uri $dependsUrl -OutFile $zipPath
+            Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+            Write-Host "✅ Dependency Walker installed at $extractPath"
+
       - name: 🔨 Build executable with Nuitka
         shell: powershell
         run: |
@@ -34,9 +44,7 @@ jobs:
             --enable-plugin=tk-inter `
             --include-data-dir=data=data `
             --windows-console-mode=disable `
-            --output-filename=hello_ips.exe `
-            --noinclude-default-mode=depends.exe
-
+            --output-filename=hello_ips.exe
 
       - name: 📎 Calculate SHA-256 Hash
         shell: powershell
