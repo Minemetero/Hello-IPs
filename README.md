@@ -47,48 +47,44 @@ project_root/
 
 ## Installation
 
-1. **Clone the repository:**
+### Windows & macOS Users
+1. **Download the Executable:**
+   - Go to the [Releases](https://github.com/Minemetero/Hello-IPs/releases) page
+   - Download the latest `Hello-IPs.exe` (Windows) or `Hello-IPs.app` (macOS) file
 
+2. **Run the Application:**
+   - Windows, Mac: Double-click the downloaded `Hello-IPs.exe` file
+   - If Windows SmartScreen appears, click "More info" and then "Run anyway"
+
+### Linux Users
+1. **Clone the Repository:**
    ```bash
    git clone https://github.com/Minemetero/Hello-IPs.git
    cd Hello-IPs
    ```
 
-2. **(Optional) Create and Activate a Virtual Environment:**
-
+2. **Create and Activate a Virtual Environment:**
    ```bash
    python -m venv venv
-   # On macOS/Linux:
    source venv/bin/activate
-   # On Windows:
-   venv\Scripts\activate
    ```
 
 3. **Install Dependencies:**
-
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Vendor Mapping File:**
-
-   Ensure that the `nmap-mac-prefixes.txt` file is located in the `data/` directory.
+4. **Run the Application:**
+   ```bash
+   python main.py
+   ```
 
 > [!TIP]
 > **If you run into any issues during installation or usage, please open an issue on GitHub or contact the maintainers.**
 
 ## Usage
 
-> [!IMPORTANT]
-> You must run the application with administrative privileges to allow raw packet operations. On Windows, right-click your command prompt and select "Run as administrator".
-
-1. **Start the Application:**
-
-   ```bash
-   python main.py
-   ```
-
-3. **Using the GUI:**
+1. **Using the GUI:**
    - Click **"Scan Network"** to start scanning.
    - The table will display discovered devices along with IP, MAC, vendor, device name, and open ports.
    - To block a device, select it from the table, choose a blocking method from the dropdown (five options available), and specify a duration.
