@@ -4,10 +4,10 @@
 
 **Hello-IPs** is a modular network scanning and device blocking tool designed for local area networks (LANs). The tool concurrently discovers devices via ARP scanning and gathers rich information about each device including its IP address, MAC address, vendor (via OUI mapping), device name (from reverse DNS and nbtstat), and an optional list of open ports. Additionally, Hello-IPs offers multiple experimental methods to block unauthorized devices.
 
-**Important:**  
-- This software is intended for use **only on networks you administrate**.  
-- The blocking methods provided are experimental and may disrupt network communications.  
-- Use this tool at your own risk; the author disclaims all liability for misuse.
+> [!WARNING]
+> This software is intended for use **only on networks you administrate**.  
+> The blocking methods provided are experimental and may disrupt network communications.  
+> Use this tool at your own risk; the author disclaims all liability for misuse.
 
 ## Features
 
@@ -74,12 +74,15 @@ project_root/
 
    Ensure that the `nmap-mac-prefixes.txt` file is located in the `data/` directory.
 
+> [!TIP]
+> **If you run into any issues during installation or usage, please open an issue on GitHub or contact the maintainers.**
+
 ## Usage
 
-1. **Run with Administrative Privileges:**  
-   On Windows, run the application as an administrator (e.g., right-click your command prompt and select "Run as administrator") to allow raw packet operations.
+> [!IMPORTANT]
+> You must run the application with administrative privileges to allow raw packet operations. On Windows, right-click your command prompt and select "Run as administrator".
 
-2. **Start the Application:**
+1. **Start the Application:**
 
    ```bash
    python main.py
@@ -98,8 +101,8 @@ This project is licensed under the [Apache License 2.0](LICENSE). All copyright 
 
 ## Disclaimer
 
-**Warning:**  
-Hello-IPs is designed for authorized network management only. The blocking methods, particularly the experimental ones (ARP Tornado, MAC Flooding, and ICMP Unreachable), may severely disrupt network communications. Use them only on networks you administrate. The author disclaims all liability for any illegal or improper use of this software.
+> [!WARNING]
+> Hello-IPs is designed for authorized network management only. The blocking methods, particularly the experimental ones (ARP Tornado, MAC Flooding, and ICMP Unreachable), may severely disrupt network communications. Use them only on networks you administrate. The author disclaims all liability for any illegal or improper use of this software.
 
 ## Contributing
 
