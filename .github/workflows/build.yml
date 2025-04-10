@@ -70,14 +70,15 @@ jobs:
 
       - name: 🗑️ Delete existing release and tag (if any)
         shell: pwsh
+        continue-on-error: true
         run: |
           $ErrorActionPreference = 'Continue'
-        
+
           gh release delete build -y
           if ($LASTEXITCODE -ne 0) {
             Write-Host "⚠️ No release to delete"
           }
-      
+
           git push --delete origin build
           if ($LASTEXITCODE -ne 0) {
             Write-Host "⚠️ No tag to delete"
