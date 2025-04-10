@@ -7,6 +7,7 @@ from .scanner import check_npcap, load_mac_prefixes, get_ip_range, scan_network
 from .block import (block_via_arp_poison, block_via_arp_flood, block_via_arp_tornado, 
                     block_via_mac_flood, block_via_icmp_unreachable)
 from .probe import probe_open_ports
+from .utils import save_scan_results
 
 class NetworkScannerApp:
     def __init__(self, master):
@@ -46,6 +47,9 @@ class NetworkScannerApp:
         self.probe_checkbox = tk.Checkbutton(self.control_frame, text="Probe Open Ports", variable=self.probe_var)
         self.probe_checkbox.grid(row=0, column=6, padx=5)
         
+        self.save_button = tk.Button(self.control_frame, text="Save Results", command=self.save_results, width=15)
+        self.save_button.grid(row=0, column=7, padx=5)
+        
         self.tip_label = tk.Label(master, text="", font=("Helvetica", 10, "italic"))
         self.tip_label.pack(pady=5)
         
@@ -57,6 +61,7 @@ class NetworkScannerApp:
         self.tree.pack(expand=True, fill="both", padx=20, pady=10)
         
         self.network = None
+        self.current_devices = []
 
     def run_scan(self):
         self.scan_button.config(state="disabled")
@@ -85,6 +90,7 @@ class NetworkScannerApp:
         else:
             for device in devices:
                 device["open_ports"] = []
+        self.current_devices = devices
         self.master.after(0, lambda: self.update_results(devices))
 
     def update_results(self, devices):
@@ -103,6 +109,9 @@ class NetworkScannerApp:
             messagebox.showinfo("Scan Complete", "No devices found on the network.")
         else:
             messagebox.showinfo("Scan Complete", f"Found {len(devices)} device(s).")
+
+    def save_results(self):
+        save_scan_results(self.current_devices, self.master)
 
     def block_selected_device(self):
         selected = self.tree.selection()
