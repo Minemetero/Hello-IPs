@@ -50,7 +50,7 @@ project_root/
 ### Windows & macOS Users
 1. **Download the Executable:**
    - Go to the [Releases](https://github.com/Minemetero/Hello-IPs/releases) page
-   - Download the latest `Hello-IPs.exe` (Windows) or `Hello-IPs.app` (macOS) file
+   - Download the latest `Hello-IPs.exe` file
 
 2. **Run the Application:**
    - Windows, Mac: Double-click the downloaded `Hello-IPs.exe` file
