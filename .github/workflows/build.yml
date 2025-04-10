@@ -71,16 +71,16 @@ jobs:
       - name: 🗑️ Delete existing release and tag (if any)
         shell: pwsh
         run: |
-          try {
-            gh release delete build -y
-          } catch {
-            Write-Host "No release to delete"
+          $ErrorActionPreference = 'Continue'
+        
+          gh release delete build -y
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "⚠️ No release to delete"
           }
       
-          try {
-            git push --delete origin build
-          } catch {
-            Write-Host "No tag to delete"
+          git push --delete origin build
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "⚠️ No tag to delete"
           }
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
