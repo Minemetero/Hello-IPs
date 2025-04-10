@@ -2,12 +2,14 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import threading
 import os
+import json
+import csv
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from .scanner import check_npcap, load_mac_prefixes, get_ip_range, scan_network, get_mac_vendor
 from .block import (block_via_arp_poison, block_via_arp_flood, block_via_arp_tornado,
                     block_via_mac_flood, block_via_icmp_unreachable)
 from .probe import probe_open_ports
-from .utils import save_scan_results
+from .utils import save_scan_results, FileViewer
 
 class NetworkScannerApp:
     def __init__(self, master):
@@ -74,6 +76,7 @@ class NetworkScannerApp:
         file_menu = tk.Menu(menubar, tearoff=0)
         file_menu.add_command(label="Scan Network", command=self.run_scan)
         file_menu.add_command(label="Save Results", command=self.save_results)
+        file_menu.add_command(label="Open File", command=self.view_saved_results)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.master.quit)
         menubar.add_cascade(label="File", menu=file_menu)
@@ -328,6 +331,9 @@ class NetworkScannerApp:
             self.update_status("Results saved successfully.")
         else:
             self.update_status("Save failed or cancelled.")
+
+    def view_saved_results(self):
+        FileViewer.open_file(self.master)
 
     # ----------------------- Status Updates -----------------------
     def update_status(self, message):
