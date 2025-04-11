@@ -8,7 +8,7 @@ import subprocess
 import tkinter as tk
 from tkinter import messagebox
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from scapy.all import ARP, Ether, srp, conf, L3socket
+from scapy.all import ARP, Ether, srp, conf
 
 conf.verb = 0
 
@@ -50,21 +50,8 @@ def check_npcap():
         test_socket = conf.L2socket()
         test_socket.close()
     except Exception:
-        # Ensure there is a Tkinter root window; if not, create a temporary one.
-        root = tk._default_root
-        if not root:
-            root = tk.Tk()
-            root.withdraw()  # Hide the main window
-
-        answer = messagebox.askyesno("NPCAP Missing",
-                                     "NPCAP is not installed. Would you like to install NPCAP for improved performance?")
-        if answer:
-            install_npcap()
-        else:
-            messagebox.showwarning("NPCAP Warning",
-                                   "No NPCAP installed; using Layer 3 socket instead.")
-        # Fallback to using the Layer 3 socket
-        conf.L2socket = L3socket
+        print("[WARNING] No npcap installed, using Layer 3 socket instead.")
+        conf.L2socket = conf.L3socket
 
 def load_mac_prefixes(file_path):
     mac_prefixes = {}
@@ -125,6 +112,9 @@ def get_ip_range():
 
 def scan_subnet(subnet, mac_prefixes):
     results = []
+
+    check_npcap()
+    
     arp_req = ARP(pdst=str(subnet))
     broadcast = Ether(dst="ff:ff:ff:ff:ff:ff")
     packet = broadcast / arp_req

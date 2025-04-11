@@ -193,7 +193,6 @@ class NetworkScannerApp:
             elif col == "MAC Address":
                 self.tree.column(col, anchor="center", stretch=True, width=140, minwidth=100)
             elif col == "Vendor":
-                # Reduced width for Vendor compared to previous version
                 self.tree.column(col, anchor="center", stretch=True, width=140, minwidth=100)
             elif col == "Device Name":
                 self.tree.column(col, anchor="center", stretch=True, width=140, minwidth=100)
@@ -222,7 +221,7 @@ class NetworkScannerApp:
 
     # ----------------------- Scanning -----------------------
     def run_scan(self):
-        self.update_status("Scanning network, this will take a while. Please wait patiently.")
+        self.update_status("Starting network scan...")
         self.scan_button.config(state="disabled")
         # Clear current devices and Treeview rows
         self.current_devices.clear()
@@ -232,24 +231,39 @@ class NetworkScannerApp:
 
     def thread_scan(self):
         try:
+            # Step 1: Check NPCAP installation.
+            self.master.after(0, lambda: self.update_status("Verifying NPCAP installation..."))
             check_npcap()
+
+            # Step 2: Load MAC prefixes.
+            self.master.after(0, lambda: self.update_status("Loading MAC prefixes..."))
             mac_prefix_path = os.path.join("data", "nmap-mac-prefixes.txt")
             self.mac_prefixes = load_mac_prefixes(mac_prefix_path)
+
+            # Step 3: Get IP range.
+            self.master.after(0, lambda: self.update_status("Determining local IP range..."))
             ip_range = get_ip_range()
             self.network = ip_range
+            self.master.after(0, lambda: self.update_status(f"IP range detected: {ip_range}"))
 
-            # Scan the network
+            # Step 4: Scan the network.
+            self.master.after(0, lambda: self.update_status(f"Scanning network on {ip_range}..."))
             devices = scan_network(ip_range, self.mac_prefixes)
-            # Initialize vendor/ports if needed
+
+            # Initialize vendor and port info.
             for device in devices:
                 device["vendor"] = "Not Fetched"
                 device["open_ports"] = []
 
+            # Step 5: Get vendor info if enabled.
             if self.show_vendor_var.get():
+                self.master.after(0, lambda: self.update_status("Fetching MAC vendor info..."))
                 for device in devices:
                     device["vendor"] = get_mac_vendor(device.get("mac", ""), self.mac_prefixes)
 
+            # Step 6: Scan open ports if enabled.
             if self.show_port_var.get():
+                self.master.after(0, lambda: self.update_status("Scanning open ports for devices..."))
                 with ThreadPoolExecutor(max_workers=10) as executor:
                     future_to_device = {
                         executor.submit(probe_open_ports, device["ip"]): device for device in devices
@@ -258,15 +272,15 @@ class NetworkScannerApp:
                         dev = future_to_device[future]
                         try:
                             dev["open_ports"] = future.result()
+                            self.master.after(0, lambda ip=dev["ip"]: self.update_status(f"Port scan complete for {ip}"))
                         except Exception:
                             dev["open_ports"] = []
-
             self.current_devices = devices
             self.master.after(0, self.post_scan_update)
         except Exception as e:
             self.master.after(0, lambda: messagebox.showerror("Error", f"An error occurred: {e}"))
             self.master.after(0, lambda: self.scan_button.config(state="normal"))
-            self.update_status("Ready")
+            self.master.after(0, lambda: self.update_status("Ready"))
 
     def post_scan_update(self):
         self.refresh_treeview_data()
@@ -310,7 +324,7 @@ class NetworkScannerApp:
             return
 
         self.block_button.config(state="disabled")
-        self.update_status(f"Blocking {target_ip}...")
+        self.update_status(f"Starting block on {target_ip}...")
         threading.Thread(
             target=self.thread_block,
             args=(target_ip, self.block_method_var.get(), block_duration),
@@ -318,16 +332,20 @@ class NetworkScannerApp:
         ).start()
 
     def thread_block(self, target_ip, block_method, block_duration):
+        # Define a callback for logging that safely updates the status bar.
+        def log_callback(message):
+            self.master.after(0, lambda: self.update_status(message))
+        
         if block_method == "ARP Poisoning":
-            block_via_arp_poison(target_ip, self.network, block_duration=block_duration)
+            block_via_arp_poison(target_ip, self.network, block_duration=block_duration, log_callback=log_callback)
         elif block_method == "ARP Flooding":
-            block_via_arp_flood(target_ip, self.network, block_duration=block_duration)
+            block_via_arp_flood(target_ip, self.network, block_duration=block_duration, log_callback=log_callback)
         elif block_method == "ARP Tornado":
-            block_via_arp_tornado(target_ip, self.network, block_duration=block_duration)
+            block_via_arp_tornado(target_ip, self.network, block_duration=block_duration, log_callback=log_callback)
         elif block_method == "MAC Flooding":
-            block_via_mac_flood(target_ip, self.network, block_duration=block_duration)
+            block_via_mac_flood(target_ip, self.network, block_duration=block_duration, log_callback=log_callback)
         elif block_method == "ICMP Unreachable":
-            block_via_icmp_unreachable(target_ip, self.network, block_duration=block_duration)
+            block_via_icmp_unreachable(target_ip, self.network, block_duration=block_duration, log_callback=log_callback)
 
         self.master.after(0, lambda: self.block_finished(target_ip))
 
