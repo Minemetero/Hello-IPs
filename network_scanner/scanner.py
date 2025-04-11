@@ -3,18 +3,68 @@ import ipaddress
 import subprocess
 import os
 import platform
+import urllib.request
+import subprocess
+import tkinter as tk
+from tkinter import messagebox
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from scapy.all import ARP, Ether, srp, conf
+from scapy.all import ARP, Ether, srp, conf, L3socket
 
 conf.verb = 0
+
+def install_npcap():
+    if platform.system().lower() != "windows":
+        messagebox.showerror("Installation Error",
+                             "NPCAP installation is only supported on Windows.")
+        return
+
+    # URL for the npcap installer; update version if needed.
+    npcap_url = "https://npcap.com/dist/npcap-1.81.exe"
+    # Download installer to the TEMP directory, or fallback to current working directory.
+    temp_dir = os.getenv("TEMP") or os.getcwd()
+    installer_path = os.path.join(temp_dir, "npcap-1.81.exe")
+
+    try:
+        messagebox.showinfo("Downloading NPCAP",
+                            "Downloading the NPCAP installer. This may take a moment...")
+        with urllib.request.urlopen(npcap_url) as response:
+            with open(installer_path, "wb") as out_file:
+                out_file.write(response.read())
+    except Exception as e:
+        messagebox.showerror("Download Error",
+                             f"Failed to download the NPCAP installer:\n{e}")
+        return
+
+    try:
+        # Run the installer using the silent flag /S if supported by the installer.
+        # You might need to adjust the flags depending on the NPCAP version.
+        subprocess.run([installer_path, "/S"], check=True)
+        messagebox.showinfo("Installation Complete",
+                            "NPCAP has been installed successfully. Please restart the program for changes to take effect.")
+    except Exception as e:
+        messagebox.showerror("Installation Error",
+                             f"Failed to run the NPCAP installer:\n{e}")
 
 def check_npcap():
     try:
         test_socket = conf.L2socket()
         test_socket.close()
     except Exception:
-        print("[WARNING] No npcap installed, using Layer 3 socket instead.")
-        conf.L2socket = conf.L3socket
+        # Ensure there is a Tkinter root window; if not, create a temporary one.
+        root = tk._default_root
+        if not root:
+            root = tk.Tk()
+            root.withdraw()  # Hide the main window
+
+        answer = messagebox.askyesno("NPCAP Missing",
+                                     "NPCAP is not installed. Would you like to install NPCAP for improved performance?")
+        if answer:
+            install_npcap()
+        else:
+            messagebox.showwarning("NPCAP Warning",
+                                   "No NPCAP installed; using Layer 3 socket instead.")
+        # Fallback to using the Layer 3 socket
+        conf.L2socket = L3socket
 
 def load_mac_prefixes(file_path):
     mac_prefixes = {}

@@ -15,7 +15,7 @@ class NetworkScannerApp:
     def __init__(self, master):
         self.master = master
         master.configure(bg="white")
-        master.geometry("1400x800")
+        master.geometry("1000x800")
         master.minsize(1100, 600)
         master.title("Hello-IPs: LAN Device Scanner")
         master.resizable(True, True)
