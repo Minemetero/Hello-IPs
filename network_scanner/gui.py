@@ -13,18 +13,16 @@ from .utils import save_scan_results, FileViewer
 
 class NetworkScannerApp:
     def __init__(self, master):
-        # Make the main window's background white
         self.master = master
         master.configure(bg="white")
+        master.geometry("1400x800")
+        master.minsize(1100, 600)
         master.title("Hello-IPs: LAN Device Scanner")
-        master.geometry("900x600")
         master.resizable(True, True)
 
-        # -----------------------------------------
         # Use Style for Ttk components if desired
         style = ttk.Style()
         style.theme_use("clam")
-        # -----------------------------------------
 
         # Track whether we show vendor / ports columns
         self.show_vendor_var = tk.BooleanVar(value=True)
@@ -42,11 +40,13 @@ class NetworkScannerApp:
         self.header_frame = tk.Frame(master, bg="white")
         self.header_frame.pack(fill="x", padx=10, pady=10)
 
-        # "Hello-IPs" title with white background
-        self.header_label = tk.Label(self.header_frame, 
-                                    text="Hello-IPs", 
-                                    font=("Helvetica", 20, "bold"),
-                                    bg="white")  # match frame bg
+        # "Hello-IPs" title
+        self.header_label = tk.Label(
+            self.header_frame, 
+            text="Hello-IPs", 
+            font=("Helvetica", 20, "bold"),
+            bg="white"  # match frame bg
+        )
         self.header_label.pack(expand=True)
         self.header_label.configure(anchor="center", justify="center")
 
@@ -55,11 +55,12 @@ class NetworkScannerApp:
         self.top_control_frame.pack(fill="x", padx=10, pady=5)
         self.create_top_controls(self.top_control_frame)
 
-        # Main content frame (can be ttk or tk; here we use ttk but it's fine)
+        # Main content frame
         self.main_frame = ttk.Frame(master)
         self.main_frame.pack(expand=True, fill="both", padx=10, pady=5)
-        self.main_frame.columnconfigure(0, weight=3)
-        self.main_frame.columnconfigure(1, weight=1)
+        # Column 0 is the treeview, column 1 is the blocking panel
+        self.main_frame.columnconfigure(0, weight=1)
+        self.main_frame.columnconfigure(1, weight=0)
 
         self.create_treeview(self.main_frame)
         self.create_blocking_panel(self.main_frame)
@@ -67,6 +68,8 @@ class NetworkScannerApp:
         # Status bar at the bottom
         self.status_bar = ttk.Label(master, text="Ready", relief="sunken", anchor="w")
         self.status_bar.pack(side="bottom", fill="x")
+
+        self.master.update_idletasks()
 
     def create_menu(self):
         menubar = tk.Menu(self.master)
@@ -81,7 +84,7 @@ class NetworkScannerApp:
         file_menu.add_command(label="Exit", command=self.master.quit)
         menubar.add_cascade(label="File", menu=file_menu)
 
-        # Options menu: two checkbuttons to toggle Vendor and Open Ports columns.
+        # Options menu: checkbuttons to toggle Vendor and Open Ports columns
         options_menu = tk.Menu(menubar, tearoff=0)
         options_menu.add_checkbutton(
             label="Vendor Column",
@@ -102,7 +105,7 @@ class NetworkScannerApp:
         menubar.add_cascade(label="Help", menu=help_menu)
 
     def show_about(self):
-        messagebox.showinfo("About", "Hello-IPs LAN Device Scanner\nDevloper: Minemetero")
+        messagebox.showinfo("About", "Hello-IPs LAN Device Scanner\nDeveloper: Minemetero")
 
     def show_support(self):
         import webbrowser
@@ -110,7 +113,6 @@ class NetworkScannerApp:
         messagebox.showinfo("Support", "Opening GitHub Issues page.")
 
     def create_top_controls(self, parent):
-        # Using ttk.Button for consistent styling with the block button
         self.scan_button = ttk.Button(parent, text="Scan", command=self.run_scan)
         self.scan_button.grid(row=0, column=0, padx=5, pady=5)
 
@@ -120,6 +122,7 @@ class NetworkScannerApp:
         parent.columnconfigure(2, weight=1)
 
     def create_treeview(self, parent):
+        # Container for the treeview + scrollbar
         results_container = ttk.Frame(parent)
         results_container.grid(row=0, column=0, sticky="nsew")
         parent.rowconfigure(0, weight=1)
@@ -131,55 +134,48 @@ class NetworkScannerApp:
         self.tree.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
 
-        # Initialize the columns based on the default checkbox settings.
+        # Initialize columns based on vendor/port toggles
         self.update_treeview_columns()
 
     def create_blocking_panel(self, parent):
-        # Blocking panel placed in the right column of the main frame
-        self.blocking_panel = ttk.Frame(parent, relief="groove", borderwidth=2)
-        self.blocking_panel.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
+        # Fixed width and a reasonable height to ensure visibility
+        self.blocking_panel = ttk.Frame(parent, relief="groove", borderwidth=2, width=300, height=400)
+        self.blocking_panel.grid(row=0, column=1, sticky="ns", padx=(10, 0))
+        self.blocking_panel.grid_propagate(False)
 
-        # Configure grid weights for centering
+        # Configure grid columns inside the blocking panel for even spacing
         self.blocking_panel.grid_columnconfigure(0, weight=1)
         self.blocking_panel.grid_columnconfigure(1, weight=1)
 
-        # Row 0: "Blocking" heading - centered
+        # Row 0: "Blocking" heading
         heading_frame = ttk.Frame(self.blocking_panel)
         heading_frame.grid(row=0, column=0, columnspan=2, pady=(10, 15))
         heading_frame.grid_columnconfigure(0, weight=1)
-        
-        ttk.Label(heading_frame, text="Blocking", font=("Helvetica", 14, "bold")).grid(
-            row=0, column=0
-        )
+        ttk.Label(heading_frame, text="Blocking", font=("Helvetica", 14, "bold")).grid(row=0, column=0)
 
         # Row 1: "Block Method" label & OptionMenu
-        ttk.Label(self.blocking_panel, text="Block Method:").grid(
-            row=1, column=0, sticky="e", padx=(5, 2), pady=5
-        )
+        ttk.Label(self.blocking_panel, text="Block Method:").grid(row=1, column=0, sticky="e", padx=(5, 2), pady=5)
         self.block_method_var = tk.StringVar(value="ARP Poisoning")
         methods = ["ARP Poisoning", "ARP Flooding", "ARP Tornado", "MAC Flooding", "ICMP Unreachable"]
         self.method_menu = ttk.OptionMenu(self.blocking_panel, self.block_method_var, methods[0], *methods)
         self.method_menu.grid(row=1, column=1, sticky="w", padx=(2, 5), pady=5)
 
-        # Row 2: "Duration (s):" with aligned entry
-        ttk.Label(self.blocking_panel, text="Duration (s):").grid(
-            row=2, column=0, sticky="e", padx=(5, 2), pady=5
-        )
+        # Row 2: "Duration (s):" label & entry
+        ttk.Label(self.blocking_panel, text="Duration (s):").grid(row=2, column=0, sticky="e", padx=(5, 2), pady=5)
         self.duration_var = tk.StringVar(value="60")
         self.duration_entry = ttk.Entry(self.blocking_panel, textvariable=self.duration_var, width=10)
         self.duration_entry.grid(row=2, column=1, sticky="w", padx=(2, 5), pady=5)
 
-        # Row 3: "Block Device" button - centered with proper spacing
+        # Row 3: "Block Device" button
         button_frame = ttk.Frame(self.blocking_panel)
         button_frame.grid(row=3, column=0, columnspan=2, pady=(15, 10))
         button_frame.grid_columnconfigure(0, weight=1)
-        
         self.block_button = ttk.Button(button_frame, text="Block Device", command=self.block_selected_device)
         self.block_button.grid(row=0, column=0)
 
-    # ----------------------- Dynamic Treeview Columns -----------------------
+    # ----------------------- Treeview Columns -----------------------
     def update_treeview_columns(self):
-        # Build the list of columns based on toggles
+        # Decide which columns appear
         columns = ["IP Address", "MAC Address"]
         if self.show_vendor_var.get():
             columns.append("Vendor")
@@ -189,11 +185,22 @@ class NetworkScannerApp:
 
         self.tree["columns"] = columns
 
+        # Set default width and minwidth for each column
         for col in columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, anchor="center", stretch=True)
+            if col == "IP Address":
+                self.tree.column(col, anchor="center", stretch=True, width=110, minwidth=90)
+            elif col == "MAC Address":
+                self.tree.column(col, anchor="center", stretch=True, width=140, minwidth=100)
+            elif col == "Vendor":
+                # Reduced width for Vendor compared to previous version
+                self.tree.column(col, anchor="center", stretch=True, width=140, minwidth=100)
+            elif col == "Device Name":
+                self.tree.column(col, anchor="center", stretch=True, width=140, minwidth=100)
+            elif col == "Open Ports":
+                self.tree.column(col, anchor="center", stretch=True, width=130, minwidth=100)
 
-        # Clear existing rows and refresh the data
+        # Clear existing rows, then refresh data
         for row in self.tree.get_children():
             self.tree.delete(row)
         self.refresh_treeview_data()
@@ -213,11 +220,11 @@ class NetworkScannerApp:
             row.append(",".join(map(str, ports)) if ports else "None")
         return tuple(row)
 
-    # ----------------------- Scanning and Data Fetching -----------------------
+    # ----------------------- Scanning -----------------------
     def run_scan(self):
         self.update_status("Scanning network, this will take a while. Please wait patiently.")
         self.scan_button.config(state="disabled")
-        # Clear out current devices and table
+        # Clear current devices and Treeview rows
         self.current_devices.clear()
         for row in self.tree.get_children():
             self.tree.delete(row)
@@ -231,20 +238,22 @@ class NetworkScannerApp:
             ip_range = get_ip_range()
             self.network = ip_range
 
-            # First scan the network
+            # Scan the network
             devices = scan_network(ip_range, self.mac_prefixes)
-            # Initialize fields to default values
+            # Initialize vendor/ports if needed
             for device in devices:
                 device["vendor"] = "Not Fetched"
                 device["open_ports"] = []
-            # If vendor column is enabled, fetch vendor info
+
             if self.show_vendor_var.get():
                 for device in devices:
                     device["vendor"] = get_mac_vendor(device.get("mac", ""), self.mac_prefixes)
-            # If open ports column is enabled, probe open ports for all devices concurrently
+
             if self.show_port_var.get():
                 with ThreadPoolExecutor(max_workers=10) as executor:
-                    future_to_device = {executor.submit(probe_open_ports, device["ip"]): device for device in devices}
+                    future_to_device = {
+                        executor.submit(probe_open_ports, device["ip"]): device for device in devices
+                    }
                     for future in as_completed(future_to_device):
                         dev = future_to_device[future]
                         try:
@@ -268,7 +277,7 @@ class NetworkScannerApp:
         else:
             messagebox.showinfo("Scan Complete", f"Found {len(self.current_devices)} device(s).")
 
-    # ----------------------- Blocking Functions -----------------------
+    # ----------------------- Blocking -----------------------
     def block_selected_device(self):
         selected = self.tree.selection()
         if not selected:
@@ -284,6 +293,7 @@ class NetworkScannerApp:
         except ValueError:
             messagebox.showwarning("Input Error", "Enter a valid duration (in seconds).")
             return
+
         if self.block_method_var.get() in ["ARP Tornado", "MAC Flooding", "ICMP Unreachable"]:
             warning = (
                 f"Warning: {self.block_method_var.get()} is experimental and may disrupt "
@@ -291,12 +301,14 @@ class NetworkScannerApp:
             )
             if not messagebox.askyesno("Warning", warning):
                 return
+
         confirm = messagebox.askyesno(
             "Confirm Block",
             f"Block {target_ip} using {self.block_method_var.get()} for {block_duration} seconds?"
         )
         if not confirm:
             return
+
         self.block_button.config(state="disabled")
         self.update_status(f"Blocking {target_ip}...")
         threading.Thread(
