@@ -2,15 +2,14 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import threading
 import os
-import json
-import csv
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from .scanner import check_npcap, load_mac_prefixes, get_ip_range, scan_network, get_mac_vendor
+from .scanner import check_npcap, load_mac_prefixes, get_ip_range, scan_network, get_mac_vendor, logger
 from .block import (block_via_arp_poison, block_via_arp_flood, block_via_arp_tornado,
                     block_via_mac_flood, block_via_icmp_unreachable, block_via_tcp_syn_flood,
                     block_via_dns_amplification)
 from .probe import probe_open_ports
 from .utils import save_scan_results, FileViewer
+from .utils.log_saver import export_logs
 
 class NetworkScannerApp:
     def __init__(self, master):
@@ -33,6 +32,9 @@ class NetworkScannerApp:
         self.network = None
         self.current_devices = []
         self.mac_prefixes = {}
+
+        # Set up logger callback
+        logger.set_status_callback(self.update_status)
 
         # Create menus (File, Options, Help)
         self.create_menu()
@@ -78,9 +80,10 @@ class NetworkScannerApp:
 
         # File menu
         file_menu = tk.Menu(menubar, tearoff=0)
-        file_menu.add_command(label="Scan Network", command=self.run_scan)
         file_menu.add_command(label="Save Results", command=self.save_results)
         file_menu.add_command(label="Open File", command=self.view_saved_results)
+        file_menu.add_separator()
+        file_menu.add_command(label="Export Logs", command=lambda: export_logs(self.master))
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.master.quit)
         menubar.add_cascade(label="File", menu=file_menu)
@@ -257,22 +260,17 @@ class NetworkScannerApp:
     def thread_scan(self):
         try:
             # Step 1: Check NPCAP installation.
-            self.master.after(0, lambda: self.update_status("Verifying NPCAP installation..."))
             check_npcap()
 
             # Step 2: Load MAC prefixes.
-            self.master.after(0, lambda: self.update_status("Loading MAC prefixes..."))
             mac_prefix_path = os.path.join("data", "nmap-mac-prefixes.txt")
             self.mac_prefixes = load_mac_prefixes(mac_prefix_path)
 
             # Step 3: Get IP range.
-            self.master.after(0, lambda: self.update_status("Determining local IP range..."))
             ip_range = get_ip_range()
             self.network = ip_range
-            self.master.after(0, lambda: self.update_status(f"IP range detected: {ip_range}"))
 
             # Step 4: Scan the network.
-            self.master.after(0, lambda: self.update_status(f"Scanning network on {ip_range}..."))
             devices = scan_network(ip_range, self.mac_prefixes)
 
             # Initialize vendor and port info.
@@ -282,13 +280,11 @@ class NetworkScannerApp:
 
             # Step 5: Get vendor info if enabled.
             if self.show_vendor_var.get():
-                self.master.after(0, lambda: self.update_status("Fetching MAC vendor info..."))
                 for device in devices:
                     device["vendor"] = get_mac_vendor(device.get("mac", ""), self.mac_prefixes)
 
             # Step 6: Scan open ports if enabled.
             if self.show_port_var.get():
-                self.master.after(0, lambda: self.update_status("Scanning open ports for devices..."))
                 with ThreadPoolExecutor(max_workers=10) as executor:
                     future_to_device = {
                         executor.submit(probe_open_ports, device["ip"]): device for device in devices
@@ -297,19 +293,17 @@ class NetworkScannerApp:
                         dev = future_to_device[future]
                         try:
                             dev["open_ports"] = future.result()
-                            self.master.after(0, lambda ip=dev["ip"]: self.update_status(f"Port scan complete for {ip}"))
                         except Exception:
                             dev["open_ports"] = []
             self.current_devices = devices
             self.master.after(0, self.post_scan_update)
         except Exception as e:
-            self.master.after(0, lambda: messagebox.showerror("Error", f"An error occurred: {e}"))
+            logger.error(f"An error occurred during scanning: {e}")
             self.master.after(0, lambda: self.scan_button.config(state="normal"))
             self.master.after(0, lambda: self.update_status("Ready"))
 
     def post_scan_update(self):
         self.refresh_treeview_data()
-        self.update_status("Scan complete.")
         self.scan_button.config(state="normal")
         if not self.current_devices:
             messagebox.showinfo("Scan Complete", "No devices found on the network.")
@@ -385,7 +379,6 @@ class NetworkScannerApp:
             return
 
         self.block_button.config(state="disabled")
-        self.update_status(f"Starting block on {target_ip}...")
         threading.Thread(
             target=self.thread_block,
             args=(target_ip, method, block_duration),

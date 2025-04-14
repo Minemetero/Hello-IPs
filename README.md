@@ -18,12 +18,14 @@
   Retrieves IP, MAC, vendor, device name, and optionally probes common open ports (e.g., 22, 23, 80, 443, 3389).
 
 - **Multiple Blocking Options:**  
-  Choose from five methods:
+  Choose from seven methods:
   - ARP Poisoning
   - ARP Flooding
   - ARP Tornado (experimental)
   - MAC Flooding (experimental)
   - ICMP Unreachable (experimental)
+  - TCP SYN Flood (experimental)
+  - DNS Amplification (experimental)
 
 - **User-Friendly GUI:**  
   Built with Tkinter, the interface features a clear control layout.
@@ -36,13 +38,19 @@ project_root/
  │    └── nmap-mac-prefixes.txt   # Vendor mapping file
  ├── output/                      # Folder for generated output (e.g., ipconfig output)
  ├── network_scanner/
- │    ├── __init__.py             # (Empty package initializer)
- │    ├── scanner.py              # Network scanning & utility functions (using concurrent scanning)
- │    ├── block.py                # Device blocking functions (all methods)
- │    └── probe.py                # Optional probing functions (e.g., for open ports)
- │    └── gui.py                  # GUI for scanning and blocking
+ │    ├── __init__.py
+ │    ├── scanner.py              # Network scanning & utility functions
+ │    ├── block.py                # Device blocking functions
+ │    ├── probe.py                # Optional probing functions
+ │    ├── gui.py                  # GUI for scanning and blocking
+ │    └── utils/                  # Utility modules
+ │         ├── __init__.py
+ │         ├── logger.py          # Common logging system
+ │         ├── log_saver.py       # Saving logs
+ │         ├── file_saver.py      # Save scan results
+ │         └── file_viewer.py     # View the file results
  ├── main.py                      # Application entry point
- └── requirements.txt             # Python dependencies (e.g., scapy>=2.4.5)
+ └── requirements.txt             # Python dependencies
 ```
 
 ## Installation
@@ -87,7 +95,7 @@ project_root/
 1. **Using the GUI:**
    - Click **"Scan Network"** to start scanning.
    - The table will display discovered devices along with IP, MAC, vendor, device name, and open ports.
-   - To block a device, select it from the table, choose a blocking method from the dropdown (five options available), and specify a duration.
+   - To block a device, select it from the table, choose a blocking method from the dropdown (seven options available), and specify a duration.
    - Click **"Block Selected Device"** to initiate the blocking process.
    - If an experimental blocking method is selected, a warning prompt will appear before proceeding.
 

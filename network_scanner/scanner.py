@@ -3,51 +3,29 @@ import ipaddress
 import subprocess
 import os
 import platform
-import urllib.request
-import subprocess
-import tkinter as tk
-from tkinter import messagebox
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from scapy.all import ARP, Ether, srp, conf
+from .utils.logger import CommonLogger
 
+# Configure Scapy
 conf.verb = 0
+conf.timeout = 2
 
-def install_npcap():
-    if platform.system().lower() != "windows":
-        messagebox.showerror("Installation Error",
-                             "NPCAP installation is only supported on Windows.")
-        return
-
-    npcap_url = "https://npcap.com/dist/npcap-1.81.exe"
-    temp_dir = os.getenv("TEMP") or os.getcwd()
-    installer_path = os.path.join(temp_dir, "npcap-1.81.exe")
-
-    try:
-        messagebox.showinfo("Downloading NPCAP",
-                            "Downloading the NPCAP installer. This may take a moment...")
-        with urllib.request.urlopen(npcap_url) as response:
-            with open(installer_path, "wb") as out_file:
-                out_file.write(response.read())
-    except Exception as e:
-        messagebox.showerror("Download Error",
-                             f"Failed to download the NPCAP installer:\n{e}")
-        return
-
-    try:
-        subprocess.run([installer_path, "/S"], check=True)
-        messagebox.showinfo("Installation Complete",
-                            "NPCAP has been installed successfully. Please restart the program for changes to take effect.")
-    except Exception as e:
-        messagebox.showerror("Installation Error",
-                             f"Failed to run the NPCAP installer:\n{e}")
+# Create logger instance
+logger = CommonLogger('scanner')
 
 def check_npcap():
     try:
         test_socket = conf.L2socket()
         test_socket.close()
-    except Exception:
-        print("[WARNING] No npcap installed, using Layer 3 socket instead.")
+        logger.info("NPCAP is available and working properly")
+        return True
+    except Exception as e:
+        logger.warning(f"No npcap installed or not working properly: {e}")
+        logger.info("Falling back to Layer 3 socket")
         conf.L2socket = conf.L3socket
+        return False
 
 def load_mac_prefixes(file_path):
     mac_prefixes = {}
@@ -59,28 +37,35 @@ def load_mac_prefixes(file_path):
                     if len(parts) == 2:
                         prefix, vendor = parts
                         mac_prefixes[prefix.upper()] = vendor.strip()
+        logger.info(f"Successfully loaded {len(mac_prefixes)} MAC prefixes")
     except Exception as e:
-        print("Failed to load MAC prefixes:", e)
+        logger.error(f"Failed to load MAC prefixes: {e}")
     return mac_prefixes
 
 def get_mac_vendor(mac_address, mac_prefixes):
     clean_mac = mac_address.upper().replace(":", "").replace("-", "")
     return mac_prefixes.get(clean_mac[:6], "Unknown")
 
-def get_device_name(ip):
+def get_device_name(ip, timeout=1):
     try:
         return socket.gethostbyaddr(ip)[0]
     except Exception:
         if platform.system().lower() == "windows":
             try:
-                output = subprocess.check_output(f"nbtstat -A {ip}", shell=True, text=True, stderr=subprocess.DEVNULL)
+                output = subprocess.check_output(
+                    f"nbtstat -A {ip}", 
+                    shell=True, 
+                    text=True, 
+                    stderr=subprocess.DEVNULL,
+                    timeout=timeout
+                )
                 for line in output.splitlines():
                     if '<00>' in line and 'UNIQUE' in line:
                         parts = line.split()
                         if parts:
                             return parts[0]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to get NetBIOS name for {ip}: {e}")
         return "Unknown"
 
 def get_subnet_mask(ip):
@@ -97,28 +82,38 @@ def get_subnet_mask(ip):
                         if "Subnet Mask" in lines[j]:
                             return lines[j].split(":")[-1].strip()
         except Exception as e:
-            print("Error retrieving subnet mask:", e)
+            logger.error(f"Error retrieving subnet mask: {e}")
     return "255.255.255.0"
 
 def get_ip_range():
-    hostname = socket.gethostname()
-    local_ip = socket.gethostbyname(hostname)
-    subnet_mask = get_subnet_mask(local_ip)
-    return ipaddress.IPv4Network(f"{local_ip}/{subnet_mask}", strict=False)
+    try:
+        hostname = socket.gethostname()
+        local_ip = socket.gethostbyname(hostname)
+        subnet_mask = get_subnet_mask(local_ip)
+        network = ipaddress.IPv4Network(f"{local_ip}/{subnet_mask}", strict=False)
+        logger.info(f"Detected local network: {network}")
+        return network
+    except Exception as e:
+        logger.error(f"Failed to determine local IP range: {e}")
+        raise
 
-def scan_subnet(subnet, mac_prefixes):
+def scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
     results = []
-
-    check_npcap()
+    
+    if not check_npcap():
+        logger.warning("NPCAP not available, scanning may be limited")
     
     arp_req = ARP(pdst=str(subnet))
     broadcast = Ether(dst="ff:ff:ff:ff:ff:ff")
     packet = broadcast / arp_req
+    
     try:
-        answered = srp(packet, timeout=3, retry=2, verbose=False)[0]
+        answered = srp(packet, timeout=timeout, retry=retry, verbose=False)[0]
+        logger.info(f"Found {len(answered)} devices in subnet {subnet}")
     except Exception as e:
-        print("Error scanning", subnet, e)
+        logger.error(f"Error scanning subnet {subnet}: {e}")
         return results
+        
     for element in answered:
         device = {
             'ip': element[1].psrc,
@@ -129,14 +124,26 @@ def scan_subnet(subnet, mac_prefixes):
         results.append(device)
     return results
 
-def scan_network(ip_range, mac_prefixes):
+def scan_network(ip_range, mac_prefixes, max_workers=10, subnet_prefix=24):
     devices = []
-    subnets = list(ip_range.subnets(new_prefix=24))
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        future_to_subnet = {executor.submit(scan_subnet, subnet, mac_prefixes): subnet for subnet in subnets}
-        for future in as_completed(future_to_subnet):
-            try:
-                devices.extend(future.result())
-            except Exception:
-                pass
+    try:
+        subnets = list(ip_range.subnets(new_prefix=subnet_prefix))
+        logger.info(f"Scanning {len(subnets)} subnets with {max_workers} workers")
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_subnet = {
+                executor.submit(scan_subnet, subnet, mac_prefixes): subnet 
+                for subnet in subnets
+            }
+            
+            for future in as_completed(future_to_subnet):
+                try:
+                    devices.extend(future.result())
+                except Exception as e:
+                    logger.error(f"Error processing subnet: {e}")
+                    
+        logger.info(f"Scan completed. Found {len(devices)} devices")
+    except Exception as e:
+        logger.error(f"Network scan failed: {e}")
+        
     return devices
