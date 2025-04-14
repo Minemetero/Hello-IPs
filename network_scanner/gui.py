@@ -57,7 +57,7 @@ class NetworkScannerApp:
         self.create_top_controls(self.top_control_frame)
 
         # Main content frame
-        self.main_frame = ttk.Frame(master)
+        self.main_frame = tk.Frame(master, bg="white")
         self.main_frame.pack(expand=True, fill="both", padx=10, pady=5)
         # Column 0 is the treeview, column 1 is the blocking panel
         self.main_frame.columnconfigure(0, weight=1)
