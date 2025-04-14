@@ -7,7 +7,8 @@ import csv
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from .scanner import check_npcap, load_mac_prefixes, get_ip_range, scan_network, get_mac_vendor
 from .block import (block_via_arp_poison, block_via_arp_flood, block_via_arp_tornado,
-                    block_via_mac_flood, block_via_icmp_unreachable)
+                    block_via_mac_flood, block_via_icmp_unreachable, block_via_tcp_syn_flood,
+                    block_via_dns_amplification)
 from .probe import probe_open_ports
 from .utils import save_scan_results, FileViewer
 
@@ -156,7 +157,8 @@ class NetworkScannerApp:
         # Row 1: "Block Method" label & OptionMenu
         ttk.Label(self.blocking_panel, text="Block Method:").grid(row=1, column=0, sticky="e", padx=(5, 2), pady=5)
         self.block_method_var = tk.StringVar(value="ARP Poisoning")
-        methods = ["ARP Poisoning", "ARP Flooding", "ARP Tornado", "MAC Flooding", "ICMP Unreachable"]
+        methods = ["ARP Poisoning", "ARP Flooding", "ARP Tornado", "MAC Flooding", "ICMP Unreachable",
+                  "TCP SYN Flood", "DNS Amplification"]
         self.method_menu = ttk.OptionMenu(self.blocking_panel, self.block_method_var, methods[0], *methods)
         self.method_menu.grid(row=1, column=1, sticky="w", padx=(2, 5), pady=5)
 
@@ -166,9 +168,32 @@ class NetworkScannerApp:
         self.duration_entry = ttk.Entry(self.blocking_panel, textvariable=self.duration_var, width=10)
         self.duration_entry.grid(row=2, column=1, sticky="w", padx=(2, 5), pady=5)
 
-        # Row 3: "Block Device" button
+        # Row 3: Additional parameters for TCP SYN Flood and DNS Amplification
+        self.param_frame = ttk.Frame(self.blocking_panel)
+        self.param_frame.grid(row=3, column=0, columnspan=2, pady=5)
+        
+        # TCP SYN Flood parameters
+        self.tcp_port_label = ttk.Label(self.param_frame, text="Target Port:")
+        self.tcp_port_var = tk.StringVar(value="80")
+        self.tcp_port_entry = ttk.Entry(self.param_frame, textvariable=self.tcp_port_var, width=10)
+        
+        # DNS Amplification parameters
+        self.dns_server_label = ttk.Label(self.param_frame, text="DNS Server:")
+        self.dns_server_var = tk.StringVar(value="8.8.8.8")
+        self.dns_server_entry = ttk.Entry(self.param_frame, textvariable=self.dns_server_var, width=15)
+        
+        # Hide parameters initially
+        self.tcp_port_label.grid_remove()
+        self.tcp_port_entry.grid_remove()
+        self.dns_server_label.grid_remove()
+        self.dns_server_entry.grid_remove()
+        
+        # Update parameters visibility when method changes
+        self.block_method_var.trace_add("write", self.update_block_parameters)
+
+        # Row 4: "Block Device" button
         button_frame = ttk.Frame(self.blocking_panel)
-        button_frame.grid(row=3, column=0, columnspan=2, pady=(15, 10))
+        button_frame.grid(row=4, column=0, columnspan=2, pady=(15, 10))
         button_frame.grid_columnconfigure(0, weight=1)
         self.block_button = ttk.Button(button_frame, text="Block Device", command=self.block_selected_device)
         self.block_button.grid(row=0, column=0)
@@ -292,6 +317,24 @@ class NetworkScannerApp:
             messagebox.showinfo("Scan Complete", f"Found {len(self.current_devices)} device(s).")
 
     # ----------------------- Blocking -----------------------
+    def update_block_parameters(self, *args):
+        """Update the visibility of additional parameters based on selected method"""
+        method = self.block_method_var.get()
+        
+        # Hide all parameters first
+        self.tcp_port_label.grid_remove()
+        self.tcp_port_entry.grid_remove()
+        self.dns_server_label.grid_remove()
+        self.dns_server_entry.grid_remove()
+        
+        # Show relevant parameters
+        if method == "TCP SYN Flood":
+            self.tcp_port_label.grid(row=0, column=0, padx=(5, 2), pady=5)
+            self.tcp_port_entry.grid(row=0, column=1, padx=(2, 5), pady=5)
+        elif method == "DNS Amplification":
+            self.dns_server_label.grid(row=0, column=0, padx=(5, 2), pady=5)
+            self.dns_server_entry.grid(row=0, column=1, padx=(2, 5), pady=5)
+
     def block_selected_device(self):
         selected = self.tree.selection()
         if not selected:
@@ -308,17 +351,35 @@ class NetworkScannerApp:
             messagebox.showwarning("Input Error", "Enter a valid duration (in seconds).")
             return
 
-        if self.block_method_var.get() in ["ARP Tornado", "MAC Flooding", "ICMP Unreachable"]:
+        method = self.block_method_var.get()
+        if method in ["ARP Tornado", "MAC Flooding", "ICMP Unreachable", "TCP SYN Flood", "DNS Amplification"]:
             warning = (
-                f"Warning: {self.block_method_var.get()} is experimental and may disrupt "
+                f"Warning: {method} is experimental and may disrupt "
                 "network communications. Continue?"
             )
             if not messagebox.askyesno("Warning", warning):
                 return
 
+        # Additional validation for TCP SYN Flood
+        if method == "TCP SYN Flood":
+            try:
+                port = int(self.tcp_port_var.get())
+                if not (0 < port <= 65535):
+                    raise ValueError
+            except ValueError:
+                messagebox.showwarning("Input Error", "Enter a valid port number (1-65535).")
+                return
+
+        # Additional validation for DNS Amplification
+        if method == "DNS Amplification":
+            dns_server = self.dns_server_var.get()
+            if not dns_server:
+                messagebox.showwarning("Input Error", "Enter a valid DNS server IP address.")
+                return
+
         confirm = messagebox.askyesno(
             "Confirm Block",
-            f"Block {target_ip} using {self.block_method_var.get()} for {block_duration} seconds?"
+            f"Block {target_ip} using {method} for {block_duration} seconds?"
         )
         if not confirm:
             return
@@ -327,7 +388,7 @@ class NetworkScannerApp:
         self.update_status(f"Starting block on {target_ip}...")
         threading.Thread(
             target=self.thread_block,
-            args=(target_ip, self.block_method_var.get(), block_duration),
+            args=(target_ip, method, block_duration),
             daemon=True
         ).start()
 
@@ -346,6 +407,12 @@ class NetworkScannerApp:
             block_via_mac_flood(target_ip, self.network, block_duration=block_duration, log_callback=log_callback)
         elif block_method == "ICMP Unreachable":
             block_via_icmp_unreachable(target_ip, self.network, block_duration=block_duration, log_callback=log_callback)
+        elif block_method == "TCP SYN Flood":
+            port = int(self.tcp_port_var.get())
+            block_via_tcp_syn_flood(target_ip, port, block_duration=block_duration, log_callback=log_callback)
+        elif block_method == "DNS Amplification":
+            dns_server = self.dns_server_var.get()
+            block_via_dns_amplification(target_ip, dns_server, block_duration=block_duration, log_callback=log_callback)
 
         self.master.after(0, lambda: self.block_finished(target_ip))
 

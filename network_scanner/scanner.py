@@ -18,9 +18,7 @@ def install_npcap():
                              "NPCAP installation is only supported on Windows.")
         return
 
-    # URL for the npcap installer; update version if needed.
     npcap_url = "https://npcap.com/dist/npcap-1.81.exe"
-    # Download installer to the TEMP directory, or fallback to current working directory.
     temp_dir = os.getenv("TEMP") or os.getcwd()
     installer_path = os.path.join(temp_dir, "npcap-1.81.exe")
 
@@ -36,8 +34,6 @@ def install_npcap():
         return
 
     try:
-        # Run the installer using the silent flag /S if supported by the installer.
-        # You might need to adjust the flags depending on the NPCAP version.
         subprocess.run([installer_path, "/S"], check=True)
         messagebox.showinfo("Installation Complete",
                             "NPCAP has been installed successfully. Please restart the program for changes to take effect.")
