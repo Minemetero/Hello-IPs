@@ -2,6 +2,7 @@ import logging
 
 class CommonLogger:
     _instances = {}
+    _log_file = 'hello-ips.log'
     
     def __new__(cls, name):
         if name not in cls._instances:
@@ -14,11 +15,11 @@ class CommonLogger:
         self.logger.setLevel(logging.INFO)
         
         # Create handlers
-        file_handler = logging.FileHandler(f'{name}.log')
+        file_handler = logging.FileHandler(self._log_file)
         console_handler = logging.StreamHandler()
         
         # Create formatters and add it to handlers
-        log_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        log_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         file_handler.setFormatter(log_format)
         console_handler.setFormatter(log_format)
         
