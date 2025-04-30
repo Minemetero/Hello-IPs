@@ -3,6 +3,7 @@ import logging
 class CommonLogger:
     _instances = {}
     _log_file = 'hello-ips.log'
+    _handlers_configured = False
     
     def __new__(cls, name):
         if name not in cls._instances:
@@ -14,18 +15,23 @@ class CommonLogger:
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.INFO)
         
-        # Create handlers
-        file_handler = logging.FileHandler(self._log_file)
-        console_handler = logging.StreamHandler()
-        
-        # Create formatters and add it to handlers
-        log_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        file_handler.setFormatter(log_format)
-        console_handler.setFormatter(log_format)
-        
-        # Add handlers to the logger
-        self.logger.addHandler(file_handler)
-        self.logger.addHandler(console_handler)
+        # Only configure handlers once
+        if not CommonLogger._handlers_configured:
+            # Create handlers
+            file_handler = logging.FileHandler(self._log_file)
+            console_handler = logging.StreamHandler()
+            
+            # Create formatters and add it to handlers
+            log_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            file_handler.setFormatter(log_format)
+            console_handler.setFormatter(log_format)
+            
+            # Add handlers to the root logger
+            root_logger = logging.getLogger()
+            root_logger.addHandler(file_handler)
+            root_logger.addHandler(console_handler)
+            
+            CommonLogger._handlers_configured = True
         
         # Initialize status callback
         self._status_callback = None

@@ -15,17 +15,27 @@ conf.timeout = 2
 # Create logger instance
 logger = CommonLogger('scanner')
 
+# Cache for NPCAP check result
+_npcap_checked = False
+_npcap_available = False
+
 def check_npcap():
-    try:
-        test_socket = conf.L2socket()
-        test_socket.close()
-        logger.info("NPCAP is available and working properly")
-        return True
-    except Exception as e:
-        logger.warning(f"No npcap installed or not working properly: {e}")
-        logger.info("Falling back to Layer 3 socket")
-        conf.L2socket = conf.L3socket
-        return False
+    global _npcap_checked, _npcap_available
+    
+    if not _npcap_checked:
+        try:
+            test_socket = conf.L2socket()
+            test_socket.close()
+            _npcap_available = True
+            logger.info("NPCAP is available and working properly")
+        except Exception as e:
+            _npcap_available = False
+            logger.warning(f"No npcap installed or not working properly: {e}")
+            logger.info("Falling back to Layer 3 socket")
+            conf.L2socket = conf.L3socket
+        _npcap_checked = True
+    
+    return _npcap_available
 
 def load_mac_prefixes(file_path):
     mac_prefixes = {}
