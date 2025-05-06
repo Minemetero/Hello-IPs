@@ -1,8 +1,61 @@
 # Hello-IPs
 
+## Table of Contents
+- [Installation](#installation)
+- [Overview](#overview)
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Usage](#usage)
+- [License](#license)
+- [Disclaimer](#disclaimer)
+- [Contributing](#contributing)
+
+## Installation
+
+### Windows Users (Easiest Method)
+1. **Download and Run:**
+   - Go to the [Releases](https://github.com/Minemetero/Hello-IPs/releases) page
+   - Download the latest `Hello-IPs.exe` file
+   - Simply double-click to run the application
+   - If Windows SmartScreen appears, click "More info" and then "Run anyway"
+
+### macOS Users
+1. **Download and Run:**
+   - Go to the [Releases](https://github.com/Minemetero/Hello-IPs/releases) page
+   - Download the latest `Hello-IPs.exe` file
+   - Double-click to run the application
+
+### Linux Users
+1. **Clone the Repository:**
+   ```bash
+   git clone https://github.com/Minemetero/Hello-IPs.git
+   cd Hello-IPs
+   ```
+
+2. **Create and Activate a Virtual Environment:**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate
+   ```
+
+3. **Install Dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Run the Application:**
+   ```bash
+   python main.py
+   ```
+
+> [!TIP]
+> **If you run into any issues during installation or usage, please open an issue on GitHub or contact the maintainers.**
+
 ## Overview
 
-**Hello-IPs** is a modular network scanning and device blocking tool designed for local area networks (LANs). The tool concurrently discovers devices via ARP scanning and gathers rich information about each device including its IP address, MAC address, vendor (via OUI mapping), device name (from reverse DNS and nbtstat), and an optional list of open ports. Additionally, Hello-IPs offers multiple experimental methods to block unauthorized devices.
+**Hello-IPs** is a user-friendly, GUI-based network scanning and device blocking tool designed for local area networks (LANs). The tool features an intuitive graphical interface that makes network management accessible to all users. Simply double-click the executable on Windows to get started.
+
+The tool concurrently discovers devices via ARP scanning and gathers rich information about each device including its IP address, MAC address, vendor (via OUI mapping), device name (from reverse DNS and nbtstat), and an optional list of open ports. Additionally, Hello-IPs offers multiple experimental methods to block unauthorized devices.
 
 > [!WARNING]
 > This software is intended for use **only on networks you administrate**.  
@@ -53,43 +106,6 @@ project_root/
  └── requirements.txt             # Python dependencies
 ```
 
-## Installation
-
-### Windows & macOS Users
-1. **Download the Executable:**
-   - Go to the [Releases](https://github.com/Minemetero/Hello-IPs/releases) page
-   - Download the latest `Hello-IPs.exe` file
-
-2. **Run the Application:**
-   - Windows, Mac: Double-click the downloaded `Hello-IPs.exe` file
-   - If Windows SmartScreen appears, click "More info" and then "Run anyway"
-
-### Linux Users
-1. **Clone the Repository:**
-   ```bash
-   git clone https://github.com/Minemetero/Hello-IPs.git
-   cd Hello-IPs
-   ```
-
-2. **Create and Activate a Virtual Environment:**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate
-   ```
-
-3. **Install Dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Run the Application:**
-   ```bash
-   python main.py
-   ```
-
-> [!TIP]
-> **If you run into any issues during installation or usage, please open an issue on GitHub or contact the maintainers.**
-
 ## Usage
 
 1. **Using the GUI:**
@@ -97,7 +113,6 @@ project_root/
    - The table will display discovered devices along with IP, MAC, vendor, device name, and open ports.
    - To block a device, select it from the table, choose a blocking method from the dropdown (seven options available), and specify a duration.
    - Click **"Block Selected Device"** to initiate the blocking process.
-   - If an experimental blocking method is selected, a warning prompt will appear before proceeding.
 
 ## License
 
