@@ -89,8 +89,8 @@ jobs:
             --output-filename=hello_ips \
             --disable-ccache \
             --macos-app-icon=none \
-            --macos-sign-notarization \
-            --macos-sign-identity=none
+            --macos-disable-console \
+            --macos-disable-signing
 
       - name: 🔍 Verify app bundle creation
         run: |
