@@ -7,8 +7,36 @@ on:
   pull_request:
 
 jobs:
+  review:
+    name: Review Project
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: 🧾 Checkout code
+        uses: actions/checkout@v3
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit flake8
+
+      - name: 🛡 Security scan (Bandit)
+        run: |
+          bandit -r . -x .venv,__pycache__,data,build,dist
+
+      - name: 🔍 Code style and error check (Flake8)
+        run: |
+          flake8 . --exclude=.venv,__pycache__,build,dist,data
+
   build-windows:
     name: Build Windows
+    needs: review
     runs-on: windows-latest
 
     steps:
@@ -63,6 +91,7 @@ jobs:
 
   build-macos:
     name: Build macOS
+    needs: review
     runs-on: macos-latest
 
     steps:
@@ -93,22 +122,23 @@ jobs:
 
       - name: 🔍 Verify app bundle creation
         run: |
-          if [ ! -d "hello_ips.app" ]; then
+          if [ ! -d "main.app" ]; then
             echo "App bundle not created. Listing directory contents:"
             ls -la
             exit 1
           fi
+          echo "✅ App bundle created successfully"
 
       - name: 📦 Create DMG package
         run: |
           mkdir -p dmg_contents
-          cp -r hello_ips.app dmg_contents/
+          cp -r main.app dmg_contents/
           hdiutil create -volname "Hello IPs" -srcfolder dmg_contents -ov -format UDZO hello_ips.dmg
 
       - name: 📎 Calculate SHA-256 Hash (macOS)
         run: |
           shasum -a 256 hello_ips.dmg > sha256sum_macos_dmg.txt
-          shasum -a 256 hello_ips.app > sha256sum_macos_app.txt
+          shasum -a 256 main.app > sha256sum_macos_app.txt
           cat sha256sum_macos_dmg.txt sha256sum_macos_app.txt
 
       - name: 📤 Upload macOS artifacts
@@ -116,7 +146,7 @@ jobs:
         with:
           name: macos-artifacts
           path: |
-            hello_ips.app
+            main.app
             hello_ips.dmg
             sha256sum_macos_dmg.txt
             sha256sum_macos_app.txt
@@ -160,7 +190,7 @@ jobs:
           files: |
             artifacts/windows-artifacts/hello_ips.exe
             artifacts/macos-artifacts/hello_ips.dmg
-            artifacts/macos-artifacts/hello_ips.app
+            artifacts/macos-artifacts/main.app
             artifacts/windows-artifacts/sha256sum_windows.txt
             artifacts/macos-artifacts/sha256sum_macos_dmg.txt
             artifacts/macos-artifacts/sha256sum_macos_app.txt
