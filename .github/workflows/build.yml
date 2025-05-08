@@ -7,8 +7,8 @@ on:
   pull_request:
 
 jobs:
-  build:
-    name: Build with Nuitka
+  build-windows:
+    name: Build Windows
     runs-on: windows-latest
 
     steps:
@@ -46,60 +46,112 @@ jobs:
             --windows-console-mode=disable `
             --output-filename=hello_ips.exe
 
-      - name: 📎 Calculate SHA-256 Hash
+      - name: 📎 Calculate SHA-256 Hash (Windows)
         shell: powershell
         run: |
           $hash = Get-FileHash hello_ips.exe -Algorithm SHA256
-          $hash.Hash | Out-File -FilePath sha256sum.txt -Encoding ascii
-          Get-Content sha256sum.txt
+          $hash.Hash | Out-File -FilePath sha256sum_windows.txt -Encoding ascii
+          Get-Content sha256sum_windows.txt
 
-      - name: 📤 Upload executable and hash
+      - name: 📤 Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts
+          name: windows-artifacts
           path: |
             hello_ips.exe
-            sha256sum.txt
+            sha256sum_windows.txt
 
-      - name: 🧾 Extract SHA256 for release notes
-        id: extract_hash
-        shell: powershell
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+
+    steps:
+      - name: 🧾 Checkout code
+        uses: actions/checkout@v3
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Install dependencies
         run: |
-          $hash = Get-Content sha256sum.txt
-          "sha256=$hash" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding ascii -Append
+          python -m pip install --upgrade pip
+          pip install nuitka scapy
+
+      - name: 🔨 Build application bundle with Nuitka
+        run: |
+          python -m nuitka main.py \
+            --standalone \
+            --macos-create-app-bundle \
+            --enable-plugin=tk-inter \
+            --include-data-dir=data=data \
+            --output-filename=hello_ips
+
+      - name: 📦 Create DMG package
+        run: |
+          mkdir -p dmg_contents
+          cp -r hello_ips.app dmg_contents/
+          hdiutil create -volname "Hello IPs" -srcfolder dmg_contents -ov -format UDZO hello_ips.dmg
+
+      - name: 📎 Calculate SHA-256 Hash (macOS)
+        run: |
+          shasum -a 256 hello_ips.dmg > sha256sum_macos_dmg.txt
+          shasum -a 256 hello_ips.app > sha256sum_macos_app.txt
+          cat sha256sum_macos_dmg.txt sha256sum_macos_app.txt
+
+      - name: 📤 Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifacts
+          path: |
+            hello_ips.app
+            hello_ips.dmg
+            sha256sum_macos_dmg.txt
+            sha256sum_macos_app.txt
+
+  create-release:
+    name: Create Release
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
       - name: 🗑️ Delete existing release and tag (if any)
-        shell: pwsh
         continue-on-error: true
         run: |
-          $ErrorActionPreference = 'Continue'
-
-          gh release delete build -y
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "⚠️ No release to delete"
-          }
-
-          git push --delete origin build
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "⚠️ No tag to delete"
-          }
+          gh release delete build -y || echo "No release to delete"
+          git push --delete origin build || echo "No tag to delete"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 🚀 Create or Update Release
+      - name: 📝 Prepare release notes
+        run: |
+          echo "Windows SHA-256:" > release_notes.txt
+          cat artifacts/windows-artifacts/sha256sum_windows.txt >> release_notes.txt
+          echo -e "\nmacOS DMG SHA-256:" >> release_notes.txt
+          cat artifacts/macos-artifacts/sha256sum_macos_dmg.txt >> release_notes.txt
+          echo -e "\nmacOS APP SHA-256:" >> release_notes.txt
+          cat artifacts/macos-artifacts/sha256sum_macos_app.txt >> release_notes.txt
+
+      - name: 🚀 Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: build
           name: build
-          body: |
-            This is the latest auto build.
-
-            SHA-256: ${{ steps.extract_hash.outputs.sha256 }}
-            Commit: ${{ github.sha }}
+          body_path: release_notes.txt
           draft: false
           prerelease: false
           files: |
-            hello_ips.exe
-            sha256sum.txt
+            artifacts/windows-artifacts/hello_ips.exe
+            artifacts/macos-artifacts/hello_ips.dmg
+            artifacts/macos-artifacts/hello_ips.app
+            artifacts/windows-artifacts/sha256sum_windows.txt
+            artifacts/macos-artifacts/sha256sum_macos_dmg.txt
+            artifacts/macos-artifacts/sha256sum_macos_app.txt
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
