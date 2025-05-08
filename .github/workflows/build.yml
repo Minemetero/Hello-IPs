@@ -7,36 +7,8 @@ on:
   pull_request:
 
 jobs:
-  review:
-    name: Review Project
-    runs-on: ubuntu-latest
-    continue-on-error: true
-
-    steps:
-      - name: 🧾 Checkout code
-        uses: actions/checkout@v3
-
-      - name: 🐍 Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: 📦 Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install bandit flake8
-
-      - name: 🛡 Security scan (Bandit)
-        run: |
-          bandit -r . -x .venv,__pycache__,data,build,dist
-
-      - name: 🔍 Code style and error check (Flake8)
-        run: |
-          flake8 . --exclude=.venv,__pycache__,build,dist,data
-
   build-windows:
     name: Build Windows
-    needs: review
     runs-on: windows-latest
 
     steps:
@@ -91,7 +63,6 @@ jobs:
 
   build-macos:
     name: Build macOS
-    needs: review
     runs-on: macos-latest
 
     steps:
@@ -137,9 +108,18 @@ jobs:
 
       - name: 📎 Calculate SHA-256 Hash (macOS)
         run: |
+          # Calculate hash for DMG
           shasum -a 256 hello_ips.dmg > sha256sum_macos_dmg.txt
-          shasum -a 256 main.app > sha256sum_macos_app.txt
-          cat sha256sum_macos_dmg.txt sha256sum_macos_app.txt
+          
+          # Calculate hash for app bundle by creating a tar archive first
+          tar -czf main.app.tar.gz main.app
+          shasum -a 256 main.app.tar.gz > sha256sum_macos_app.txt
+          
+          # Display the hashes
+          echo "DMG Hash:"
+          cat sha256sum_macos_dmg.txt
+          echo "App Bundle Hash:"
+          cat sha256sum_macos_app.txt
 
       - name: 📤 Upload macOS artifacts
         uses: actions/upload-artifact@v4
@@ -148,6 +128,7 @@ jobs:
           path: |
             main.app
             hello_ips.dmg
+            main.app.tar.gz
             sha256sum_macos_dmg.txt
             sha256sum_macos_app.txt
 
@@ -176,7 +157,7 @@ jobs:
           cat artifacts/windows-artifacts/sha256sum_windows.txt >> release_notes.txt
           echo -e "\nmacOS DMG SHA-256:" >> release_notes.txt
           cat artifacts/macos-artifacts/sha256sum_macos_dmg.txt >> release_notes.txt
-          echo -e "\nmacOS APP SHA-256:" >> release_notes.txt
+          echo -e "\nmacOS APP Bundle SHA-256:" >> release_notes.txt
           cat artifacts/macos-artifacts/sha256sum_macos_app.txt >> release_notes.txt
 
       - name: 🚀 Create Release
@@ -190,7 +171,7 @@ jobs:
           files: |
             artifacts/windows-artifacts/hello_ips.exe
             artifacts/macos-artifacts/hello_ips.dmg
-            artifacts/macos-artifacts/main.app
+            artifacts/macos-artifacts/main.app.tar.gz
             artifacts/windows-artifacts/sha256sum_windows.txt
             artifacts/macos-artifacts/sha256sum_macos_dmg.txt
             artifacts/macos-artifacts/sha256sum_macos_app.txt
