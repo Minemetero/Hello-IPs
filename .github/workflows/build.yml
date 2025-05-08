@@ -86,7 +86,9 @@ jobs:
             --macos-create-app-bundle \
             --enable-plugin=tk-inter \
             --include-data-dir=data=data \
-            --output-filename=hello_ips
+            --output-filename=hello_ips \
+            --disable-ccache \
+            --macos-app-icon=none
 
       - name: 📦 Create DMG package
         run: |
