@@ -1,0 +1,50 @@
+name: Update nmap-mac-prefixes
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+jobs:
+  update-nmap-mac-prefixes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - name: Download latest nmap-mac-prefixes
+        run: |
+          if ! curl -sSL -o data/nmap-mac-prefixes.txt.new https://svn.nmap.org/nmap/nmap-mac-prefixes; then
+            echo "Failed to download nmap-mac-prefixes"
+            exit 1
+          fi
+
+      - name: Check for changes and update
+        id: check-update
+        run: |
+          if [ ! -f "data/nmap-mac-prefixes.txt" ]; then
+            echo "Creating new nmap-mac-prefixes.txt file"
+            mv data/nmap-mac-prefixes.txt.new data/nmap-mac-prefixes.txt
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          elif ! cmp -s data/nmap-mac-prefixes.txt.new data/nmap-mac-prefixes.txt; then
+            echo "Changes detected, updating file"
+            mv data/nmap-mac-prefixes.txt.new data/nmap-mac-prefixes.txt
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "No changes detected"
+            rm data/nmap-mac-prefixes.txt.new
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push if updated
+        if: steps.check-update.outputs.has_changes == 'true'
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add data/nmap-mac-prefixes.txt
+          git commit -m 'chore: update nmap-mac-prefixes to latest from Nmap SVN' || exit 0
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
