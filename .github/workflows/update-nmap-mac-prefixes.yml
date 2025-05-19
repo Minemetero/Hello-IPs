@@ -16,8 +16,37 @@ jobs:
 
       - name: Download latest nmap-mac-prefixes
         run: |
-          if ! curl -sSL -o data/nmap-mac-prefixes.txt.new https://svn.nmap.org/nmap/nmap-mac-prefixes; then
-            echo "Failed to download nmap-mac-prefixes"
+          # Function to download with retries
+          download_with_retry() {
+            local max_attempts=3
+            local attempt=1
+            local delay=5
+            
+            while [ $attempt -le $max_attempts ]; do
+              echo "Attempt $attempt of $max_attempts to download nmap-mac-prefixes"
+              if curl -sSL --connect-timeout 10 --max-time 30 \
+                     -A "GitHub Actions Workflow" \
+                     -o data/nmap-mac-prefixes.txt.new \
+                     https://svn.nmap.org/nmap/nmap-mac-prefixes; then
+                return 0
+              fi
+              
+              echo "Download failed, waiting ${delay}s before retry..."
+              sleep $delay
+              attempt=$((attempt + 1))
+              delay=$((delay * 2))
+            done
+            
+            echo "Failed to download nmap-mac-prefixes after $max_attempts attempts"
+            return 1
+          }
+          
+          # Create data directory if it doesn't exist
+          mkdir -p data
+          
+          # Try to download
+          if ! download_with_retry; then
+            echo "::error::Failed to download nmap-mac-prefixes after multiple attempts"
             exit 1
           fi
 
