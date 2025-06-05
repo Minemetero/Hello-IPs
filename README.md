@@ -19,7 +19,7 @@
    - Simply double-click to run the application
    - If Windows SmartScreen appears, click "More info" and then "Run anyway"
 
-### macOS Users
+### ~~macOS Users~~
 1. **Download and Run:**
    - Go to the [Releases](https://github.com/Minemetero/Hello-IPs/releases) page
    - Download the latest `hello_ips.dmg` file
