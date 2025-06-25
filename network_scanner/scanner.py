@@ -5,7 +5,7 @@ import os
 import platform
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from scapy.all import ARP, Ether, srp, conf
+from scapy.all import ARP, Ether, srp, sr1, IP, ICMP, conf, getmacbyip
 from .utils.logger import CommonLogger
 
 # Configure Scapy
@@ -14,6 +14,13 @@ conf.timeout = 2
 
 # Create logger instance
 logger = CommonLogger('scanner')
+
+# User-facing labels for device scanning methods
+NETWORK_SCAN_METHOD_LABELS = {
+    "arp": "ARP Scan (Default)",
+    "ping": "Ping Sweep",
+    "nmap": "Nmap Ping Scan",
+}
 
 # Cache for NPCAP check result
 _npcap_checked = False
@@ -107,7 +114,7 @@ def get_ip_range():
         logger.error(f"Failed to determine local IP range: {e}")
         raise
 
-def scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
+def _arp_scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
     results = []
     
     if not check_npcap():
@@ -134,26 +141,86 @@ def scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
         results.append(device)
     return results
 
-def scan_network(ip_range, mac_prefixes, max_workers=10, subnet_prefix=24):
+
+def _ping_scan_subnet(subnet, mac_prefixes, timeout=1):
+    """Scan a subnet using ICMP echo requests."""
+    results = []
+    for ip in subnet.hosts():
+        try:
+            resp = sr1(IP(dst=str(ip)) / ICMP(), timeout=timeout, verbose=False)
+            if resp:
+                mac = getmacbyip(str(ip)) or "Unknown"
+                device = {
+                    'ip': str(ip),
+                    'mac': mac,
+                    'vendor': get_mac_vendor(mac, mac_prefixes),
+                    'device_name': get_device_name(str(ip))
+                }
+                results.append(device)
+        except Exception as e:
+            logger.debug(f"Ping to {ip} failed: {e}")
+    return results
+
+
+def _nmap_scan_network(ip_range, mac_prefixes):
+    """Discover hosts using ``nmap -sn``."""
+    cmd = ["nmap", "-sn", "-n", str(ip_range)]
+    creationflags = subprocess.CREATE_NO_WINDOW if platform.system().lower() == "windows" else 0
+    try:
+        output = subprocess.check_output(
+            cmd,
+            text=True,
+            stderr=subprocess.DEVNULL,
+            creationflags=creationflags,
+        )
+    except Exception as e:
+        logger.error(f"nmap scan failed: {e}")
+        return []
+
     devices = []
+    current_ip = None
+    for line in output.splitlines():
+        if line.startswith("Nmap scan report for"):
+            current_ip = line.split()[-1]
+            mac = getmacbyip(current_ip) or "Unknown"
+            devices.append({
+                'ip': current_ip,
+                'mac': mac,
+                'vendor': get_mac_vendor(mac, mac_prefixes),
+                'device_name': get_device_name(current_ip)
+            })
+    return devices
+
+def scan_network(ip_range, mac_prefixes, max_workers=10, subnet_prefix=24, method="arp"):
+    """Scan the network using the specified method."""
+    devices = []
+
+    if method == "nmap":
+        return _nmap_scan_network(ip_range, mac_prefixes)
+
     try:
         subnets = list(ip_range.subnets(new_prefix=subnet_prefix))
         logger.info(f"Scanning {len(subnets)} subnets with {max_workers} workers")
-        
+
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            if method == "ping":
+                scan_func = _ping_scan_subnet
+            else:
+                scan_func = _arp_scan_subnet
+
             future_to_subnet = {
-                executor.submit(scan_subnet, subnet, mac_prefixes): subnet 
+                executor.submit(scan_func, subnet, mac_prefixes): subnet
                 for subnet in subnets
             }
-            
+
             for future in as_completed(future_to_subnet):
                 try:
                     devices.extend(future.result())
                 except Exception as e:
                     logger.error(f"Error processing subnet: {e}")
-                    
+
         logger.info(f"Scan completed. Found {len(devices)} devices")
     except Exception as e:
         logger.error(f"Network scan failed: {e}")
-        
+
     return devices

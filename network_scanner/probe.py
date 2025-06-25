@@ -1,6 +1,7 @@
 import socket
 import subprocess
 import re
+import platform
 
 # Map scan method names to corresponding nmap flags
 NMAP_SCAN_MODES = {
@@ -42,8 +43,14 @@ def _run_nmap(ip, flags, ports=None):
         cmd.extend(["-p", port_str])
     cmd.append(ip)
 
+    creationflags = subprocess.CREATE_NO_WINDOW if platform.system().lower() == "windows" else 0
     try:
-        output = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL)
+        output = subprocess.check_output(
+            cmd,
+            text=True,
+            stderr=subprocess.DEVNULL,
+            creationflags=creationflags,
+        )
     except Exception:
         return []
 

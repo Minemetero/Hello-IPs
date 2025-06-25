@@ -3,7 +3,15 @@ from tkinter import ttk, messagebox, filedialog
 import threading
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from .scanner import check_npcap, load_mac_prefixes, get_ip_range, scan_network, get_mac_vendor, logger
+from .scanner import (
+    check_npcap,
+    load_mac_prefixes,
+    get_ip_range,
+    scan_network,
+    get_mac_vendor,
+    logger,
+    NETWORK_SCAN_METHOD_LABELS,
+)
 from .block import (block_via_arp_poison, block_via_arp_flood, block_via_arp_tornado,
                     block_via_mac_flood, block_via_icmp_unreachable, block_via_tcp_syn_flood,
                     block_via_dns_amplification)
@@ -28,6 +36,7 @@ class NetworkScannerApp:
         self.show_vendor_var = tk.BooleanVar(value=True)
         self.show_port_var = tk.BooleanVar(value=True)
         self.scan_method_var = tk.StringVar(value="socket")
+        self.network_scan_var = tk.StringVar(value="arp")
 
         # Data storage
         self.network = None
@@ -101,10 +110,15 @@ class NetworkScannerApp:
             variable=self.show_port_var,
             command=self.update_treeview_columns
         )
-        scan_menu = tk.Menu(options_menu, tearoff=0)
+        port_scan_menu = tk.Menu(options_menu, tearoff=0)
         for method, label in SCAN_METHOD_LABELS.items():
-            scan_menu.add_radiobutton(label=label, value=method, variable=self.scan_method_var)
-        options_menu.add_cascade(label="Port Scan Method", menu=scan_menu)
+            port_scan_menu.add_radiobutton(label=label, value=method, variable=self.scan_method_var)
+        options_menu.add_cascade(label="Port Scan Method", menu=port_scan_menu)
+
+        net_scan_menu = tk.Menu(options_menu, tearoff=0)
+        for method, label in NETWORK_SCAN_METHOD_LABELS.items():
+            net_scan_menu.add_radiobutton(label=label, value=method, variable=self.network_scan_var)
+        options_menu.add_cascade(label="Device Scan Method", menu=net_scan_menu)
         menubar.add_cascade(label="Options", menu=options_menu)
 
         # Help menu
@@ -276,7 +290,8 @@ class NetworkScannerApp:
             self.network = ip_range
 
             # Step 4: Scan the network.
-            devices = scan_network(ip_range, self.mac_prefixes)
+            net_method = self.network_scan_var.get()
+            devices = scan_network(ip_range, self.mac_prefixes, method=net_method)
 
             # Initialize vendor and port info.
             for device in devices:
