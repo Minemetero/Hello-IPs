@@ -135,6 +135,7 @@ jobs:
   create-release:
     name: Create Release
     needs: [build-windows, build-macos]
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
 
     steps:
