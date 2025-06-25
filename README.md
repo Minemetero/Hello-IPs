@@ -69,6 +69,7 @@ The tool concurrently discovers devices via ARP scanning and gathers rich inform
   
 - **Rich Device Information:**  
   Retrieves IP, MAC, vendor, device name, and optionally probes common open ports (e.g., 22, 23, 80, 443, 3389).
+  Open port scanning can use a simple socket probe or one of several ``nmap`` modes (Quick, Stealth, UDP, or Intense) when ``nmap`` is installed.
 
 - **Multiple Blocking Options:**  
   Choose from seven methods:
@@ -109,10 +110,11 @@ project_root/
 ## Usage
 
 1. **Using the GUI:**
-   - Click **"Scan Network"** to start scanning.
-   - The table will display discovered devices along with IP, MAC, vendor, device name, and open ports.
-   - To block a device, select it from the table, choose a blocking method from the dropdown (seven options available), and specify a duration.
-   - Click **"Block Selected Device"** to initiate the blocking process.
+ - Click **"Scan Network"** to start scanning.
+ - The table will display discovered devices along with IP, MAC, vendor, device name, and open ports.
+ - To block a device, select it from the table, choose a blocking method from the dropdown (seven options available), and specify a duration.
+ - Click **"Block Selected Device"** to initiate the blocking process.
+ - Under **Options**, choose a **Port Scan Method**. "Basic (Socket)" is the default, but you can also select **Quick**, **Stealth**, **UDP**, or **Intense** nmap scans if ``nmap`` is installed.
 
 ## License
 

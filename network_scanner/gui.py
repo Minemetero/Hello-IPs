@@ -7,7 +7,7 @@ from .scanner import check_npcap, load_mac_prefixes, get_ip_range, scan_network,
 from .block import (block_via_arp_poison, block_via_arp_flood, block_via_arp_tornado,
                     block_via_mac_flood, block_via_icmp_unreachable, block_via_tcp_syn_flood,
                     block_via_dns_amplification)
-from .probe import probe_open_ports
+from .probe import probe_open_ports, SCAN_METHOD_LABELS
 from .utils import save_scan_results, FileViewer
 from .utils.log_saver import export_logs
 
@@ -27,6 +27,7 @@ class NetworkScannerApp:
         # Track whether we show vendor / ports columns
         self.show_vendor_var = tk.BooleanVar(value=True)
         self.show_port_var = tk.BooleanVar(value=True)
+        self.scan_method_var = tk.StringVar(value="socket")
 
         # Data storage
         self.network = None
@@ -100,6 +101,10 @@ class NetworkScannerApp:
             variable=self.show_port_var,
             command=self.update_treeview_columns
         )
+        scan_menu = tk.Menu(options_menu, tearoff=0)
+        for method, label in SCAN_METHOD_LABELS.items():
+            scan_menu.add_radiobutton(label=label, value=method, variable=self.scan_method_var)
+        options_menu.add_cascade(label="Port Scan Method", menu=scan_menu)
         menubar.add_cascade(label="Options", menu=options_menu)
 
         # Help menu
@@ -285,9 +290,11 @@ class NetworkScannerApp:
 
             # Step 6: Scan open ports if enabled.
             if self.show_port_var.get():
+                method = self.scan_method_var.get()
                 with ThreadPoolExecutor(max_workers=10) as executor:
                     future_to_device = {
-                        executor.submit(probe_open_ports, device["ip"]): device for device in devices
+                        executor.submit(probe_open_ports, device["ip"], method=method): device
+                        for device in devices
                     }
                     for future in as_completed(future_to_device):
                         dev = future_to_device[future]
