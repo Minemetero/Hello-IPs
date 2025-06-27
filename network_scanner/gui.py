@@ -15,7 +15,7 @@ from .scanner import (
 from .block import (block_via_arp_poison, block_via_arp_flood, block_via_arp_tornado,
                     block_via_mac_flood, block_via_icmp_unreachable, block_via_tcp_syn_flood,
                     block_via_dns_amplification)
-from .probe import probe_open_ports, SCAN_METHOD_LABELS
+from .probe import probe_open_ports, SCAN_METHOD_LABELS, guess_os, probe_services
 from .utils import save_scan_results, FileViewer
 from .utils.log_saver import export_logs
 
@@ -32,9 +32,11 @@ class NetworkScannerApp:
         style = ttk.Style()
         style.theme_use("clam")
 
-        # Track whether we show vendor / ports columns
+        # Track which optional columns appear
         self.show_vendor_var = tk.BooleanVar(value=True)
         self.show_port_var = tk.BooleanVar(value=True)
+        self.show_os_var = tk.BooleanVar(value=False)
+        self.show_service_var = tk.BooleanVar(value=False)
         self.scan_method_var = tk.StringVar(value="socket")
         self.network_scan_var = tk.StringVar(value="arp")
 
@@ -108,6 +110,16 @@ class NetworkScannerApp:
         options_menu.add_checkbutton(
             label="Open Ports Column",
             variable=self.show_port_var,
+            command=self.update_treeview_columns
+        )
+        options_menu.add_checkbutton(
+            label="OS Column",
+            variable=self.show_os_var,
+            command=self.update_treeview_columns
+        )
+        options_menu.add_checkbutton(
+            label="Service Column",
+            variable=self.show_service_var,
             command=self.update_treeview_columns
         )
         port_scan_menu = tk.Menu(options_menu, tearoff=0)
@@ -229,6 +241,10 @@ class NetworkScannerApp:
         columns.append("Device Name")
         if self.show_port_var.get():
             columns.append("Open Ports")
+        if self.show_os_var.get():
+            columns.append("OS")
+        if self.show_service_var.get():
+            columns.append("Services")
 
         self.tree["columns"] = columns
 
@@ -245,6 +261,10 @@ class NetworkScannerApp:
                 self.tree.column(col, anchor="center", stretch=True, width=140, minwidth=100)
             elif col == "Open Ports":
                 self.tree.column(col, anchor="center", stretch=True, width=130, minwidth=100)
+            elif col == "OS":
+                self.tree.column(col, anchor="center", stretch=True, width=120, minwidth=90)
+            elif col == "Services":
+                self.tree.column(col, anchor="center", stretch=True, width=150, minwidth=120)
 
         # Clear existing rows, then refresh data
         for row in self.tree.get_children():
@@ -264,6 +284,15 @@ class NetworkScannerApp:
         if self.show_port_var.get():
             ports = device.get("open_ports", [])
             row.append(",".join(map(str, ports)) if ports else "None")
+        if self.show_os_var.get():
+            row.append(device.get("os", "Unknown"))
+        if self.show_service_var.get():
+            services = device.get("services", {})
+            if services:
+                service_str = ",".join(f"{p}:{n}" for p, n in services.items())
+            else:
+                service_str = "None"
+            row.append(service_str)
         return tuple(row)
 
     # ----------------------- Scanning -----------------------
@@ -297,6 +326,8 @@ class NetworkScannerApp:
             for device in devices:
                 device["vendor"] = "Not Fetched"
                 device["open_ports"] = []
+                device["os"] = "Unknown"
+                device["services"] = {}
 
             # Step 5: Get vendor info if enabled.
             if self.show_vendor_var.get():
@@ -317,6 +348,34 @@ class NetworkScannerApp:
                             dev["open_ports"] = future.result()
                         except Exception:
                             dev["open_ports"] = []
+
+            # Step 7: Guess OS if enabled
+            if self.show_os_var.get():
+                with ThreadPoolExecutor(max_workers=10) as executor:
+                    future_to_device = {
+                        executor.submit(guess_os, device["ip"]): device
+                        for device in devices
+                    }
+                    for future in as_completed(future_to_device):
+                        dev = future_to_device[future]
+                        try:
+                            dev["os"] = future.result()
+                        except Exception:
+                            dev["os"] = "Unknown"
+
+            # Step 8: Gather service info if enabled
+            if self.show_service_var.get():
+                with ThreadPoolExecutor(max_workers=10) as executor:
+                    future_to_device = {
+                        executor.submit(probe_services, device["ip"], device.get("open_ports")): device
+                        for device in devices
+                    }
+                    for future in as_completed(future_to_device):
+                        dev = future_to_device[future]
+                        try:
+                            dev["services"] = future.result()
+                        except Exception:
+                            dev["services"] = {}
             self.current_devices = devices
             self.master.after(0, self.post_scan_update)
         except Exception as e:

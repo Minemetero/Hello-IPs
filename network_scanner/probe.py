@@ -2,6 +2,7 @@ import socket
 import subprocess
 import re
 import platform
+from scapy.all import sr1, IP, ICMP
 
 # Map scan method names to corresponding nmap flags
 NMAP_SCAN_MODES = {
@@ -9,6 +10,9 @@ NMAP_SCAN_MODES = {
     "stealth": ["-sS"],
     "udp": ["-sU"],
     "intense": ["-sS", "-sU", "-T4"],
+    "service": ["-sV"],
+    "os": ["-O"],
+    "full": ["-A"],
 }
 
 # User-facing labels for each scanning method
@@ -18,6 +22,9 @@ SCAN_METHOD_LABELS = {
     "stealth": "Stealth Nmap Scan",
     "udp": "UDP Nmap Scan",
     "intense": "Intense Nmap Scan",
+    "service": "Service Detection",
+    "os": "OS Detection",
+    "full": "Comprehensive Scan",
 }
 
 
@@ -104,3 +111,52 @@ def probe_open_ports(ip, ports=None, timeout=0.5, method="socket"):
         except Exception:
             continue
     return open_ports
+
+
+def guess_os(ip, timeout=1):
+    """Guess the operating system based on ICMP TTL values."""
+    try:
+        ans = sr1(IP(dst=ip) / ICMP(), timeout=timeout, verbose=False)
+        if not ans:
+            return "Unknown"
+        ttl = ans.ttl
+        if ttl <= 64:
+            return "Unix/Linux"
+        if ttl <= 128:
+            return "Windows"
+        return "Unknown"
+    except Exception:
+        return "Unknown"
+
+
+def probe_services(ip, ports=None):
+    """Return a mapping of port numbers to service names using ``nmap -sV``."""
+    services = {}
+
+    cmd = ["nmap", "-sV", "-Pn"]
+    if ports:
+        port_str = ",".join(str(p) for p in ports)
+        cmd.extend(["-p", port_str])
+    cmd.append(ip)
+
+    creationflags = subprocess.CREATE_NO_WINDOW if platform.system().lower() == "windows" else 0
+    try:
+        output = subprocess.check_output(
+            cmd,
+            text=True,
+            stderr=subprocess.DEVNULL,
+            creationflags=creationflags,
+        )
+    except Exception:
+        return services
+
+    for line in output.splitlines():
+        match = re.match(r"^(\d+)/(tcp|udp)\s+open\s+(\S+)", line)
+        if match:
+            try:
+                port = int(match.group(1))
+                service = match.group(3)
+                services[port] = service
+            except ValueError:
+                continue
+    return services
