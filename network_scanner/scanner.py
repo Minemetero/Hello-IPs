@@ -8,6 +8,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from scapy.all import ARP, Ether, srp, sr1, IP, ICMP, conf, getmacbyip
 from .utils.logger import CommonLogger
 
+# Suppress noisy Scapy runtime warnings (e.g., missing MAC addresses)
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+
 # Configure Scapy
 conf.verb = 0
 conf.timeout = 2
