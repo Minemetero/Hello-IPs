@@ -70,7 +70,7 @@ The tool concurrently discovers devices via ARP scanning and gathers rich inform
 - **Rich Device Information:**  
   Retrieves IP, MAC, vendor, device name, and optionally probes common open ports (e.g., 22, 23, 80, 443, 3389).
   Open port scanning can use a simple socket probe or one of several ``nmap`` modes (Quick, Stealth, UDP, or Intense) when ``nmap`` is installed.
-  Device discovery supports ARP, Ping Sweep, or ``nmap -sn`` for flexible scanning.
+  Device discovery supports ARP, an asynchronous Ping Sweep, or ``nmap -sn`` for flexible scanning.
 
 - **Multiple Blocking Options:**  
   Choose from seven methods:

@@ -5,7 +5,7 @@ import os
 import platform
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from scapy.all import ARP, Ether, srp, sr1, IP, ICMP, conf, getmacbyip
+from scapy.all import ARP, Ether, srp, sr1, sr, IP, ICMP, conf, getmacbyip
 from .utils.logger import CommonLogger
 
 # Suppress noisy Scapy runtime warnings (e.g., missing MAC addresses)
@@ -147,21 +147,24 @@ def _arp_scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
 
 def _ping_scan_subnet(subnet, mac_prefixes, timeout=1):
     """Scan a subnet using ICMP echo requests."""
+    ip_list = [str(ip) for ip in subnet.hosts()]
+    try:
+        ans, _ = sr(IP(dst=ip_list) / ICMP(), timeout=timeout, verbose=False)
+    except Exception as e:
+        logger.error(f"Ping sweep error on {subnet}: {e}")
+        return []
+
     results = []
-    for ip in subnet.hosts():
-        try:
-            resp = sr1(IP(dst=str(ip)) / ICMP(), timeout=timeout, verbose=False)
-            if resp:
-                mac = getmacbyip(str(ip)) or "Unknown"
-                device = {
-                    'ip': str(ip),
-                    'mac': mac,
-                    'vendor': get_mac_vendor(mac, mac_prefixes),
-                    'device_name': get_device_name(str(ip))
-                }
-                results.append(device)
-        except Exception as e:
-            logger.debug(f"Ping to {ip} failed: {e}")
+    for sent, received in ans:
+        ip = received.src
+        mac = getmacbyip(ip) or "Unknown"
+        device = {
+            'ip': ip,
+            'mac': mac,
+            'vendor': get_mac_vendor(mac, mac_prefixes),
+            'device_name': get_device_name(ip)
+        }
+        results.append(device)
     return results
 
 
