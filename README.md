@@ -117,6 +117,14 @@ project_root/
    - To block a device, select it from the table, choose a blocking method from the dropdown (seven options available), and specify a duration.
    - Click **"Block Selected Device"** to initiate the blocking process.
 
+## Packaging
+
+The scanner automatically resolves the location of its data files at runtime.
+When building a standalone executable with tools like Nuitka or PyInstaller,
+ensure the `data` directory is bundled next to the binary. The application uses
+an internal helper to locate `data/nmap-mac-prefixes.txt` relative to the
+executable, so no additional code changes are required.
+
 ## License
 
 This project is licensed under the [Apache License 2.0](LICENSE). All copyright remains with the author. The software is provided "AS IS" without warranties, and the user assumes full responsibility for any misuse or illegal activity arising from its use.
