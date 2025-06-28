@@ -119,10 +119,12 @@ async def scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
     packet = broadcast / arp_req
 
     try:
-        sniffer = AsyncSniffer(filter="arp and arp[6:2] == 2", timeout=timeout)
+        # Use AsyncSniffer without a timeout so we control when to stop it.
+        sniffer = AsyncSniffer(filter="arp and arp[6:2] == 2")
         sniffer.start()
         await asyncio.to_thread(sendp, packet, verbose=False)
         await asyncio.sleep(timeout)
+        # sniffer.stop() returns the captured packets.
         answered = sniffer.stop()
         logger.info(f"Found {len(answered)} devices in subnet {subnet}")
     except Exception as e:
