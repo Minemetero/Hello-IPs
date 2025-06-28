@@ -11,7 +11,6 @@ from .block import (block_via_arp_poison, block_via_arp_flood, block_via_arp_tor
 from .probe import probe_open_ports, fingerprint_os
 from .utils import save_scan_results, FileViewer
 from .utils.log_saver import export_logs
-from .utils.path_utils import resource_path
 
 class NetworkScannerApp:
     def __init__(self, master):
@@ -276,10 +275,9 @@ class NetworkScannerApp:
             # Step 1: Check NPCAP installation.
             check_npcap()
 
-            # Step 2: Load MAC prefixes. Use a path relative to the
-            # application so packaging tools like Nuitka work correctly.
-            data_path = resource_path("data", "nmap-mac-prefixes.txt")
-            self.mac_prefixes = load_mac_prefixes(data_path)
+            # Step 2: Load MAC prefixes. ``load_mac_prefixes`` automatically
+            # locates the bundled data directory when packaged.
+            self.mac_prefixes = load_mac_prefixes()
 
             # Step 3: Get IP range.
             ip_range = get_ip_range()
