@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import threading
 import os
+import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from .scanner import check_npcap, load_mac_prefixes, get_ip_range, scan_network, get_mac_vendor, logger
 from .block import (block_via_arp_poison, block_via_arp_flood, block_via_arp_tornado,
@@ -282,8 +283,8 @@ class NetworkScannerApp:
             ip_range = get_ip_range()
             self.network = ip_range
 
-            # Step 4: Scan the network.
-            devices = scan_network(ip_range, self.mac_prefixes)
+            # Step 4: Scan the network asynchronously.
+            devices = asyncio.run(scan_network(ip_range, self.mac_prefixes))
 
             # Initialize vendor and port info.
             for device in devices:
