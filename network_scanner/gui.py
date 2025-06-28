@@ -7,7 +7,7 @@ from .scanner import check_npcap, load_mac_prefixes, get_ip_range, scan_network,
 from .block import (block_via_arp_poison, block_via_arp_flood, block_via_arp_tornado,
                     block_via_mac_flood, block_via_icmp_unreachable, block_via_tcp_syn_flood,
                     block_via_dns_amplification)
-from .probe import probe_open_ports
+from .probe import probe_open_ports, guess_os
 from .utils import save_scan_results, FileViewer
 from .utils.log_saver import export_logs
 
@@ -24,9 +24,10 @@ class NetworkScannerApp:
         style = ttk.Style()
         style.theme_use("clam")
 
-        # Track whether we show vendor / ports columns
+        # Track whether we show vendor / ports / OS columns
         self.show_vendor_var = tk.BooleanVar(value=True)
         self.show_port_var = tk.BooleanVar(value=True)
+        self.show_os_var = tk.BooleanVar(value=True)
 
         # Data storage
         self.network = None
@@ -98,6 +99,11 @@ class NetworkScannerApp:
         options_menu.add_checkbutton(
             label="Open Ports Column",
             variable=self.show_port_var,
+            command=self.update_treeview_columns
+        )
+        options_menu.add_checkbutton(
+            label="OS Guess Column",
+            variable=self.show_os_var,
             command=self.update_treeview_columns
         )
         menubar.add_cascade(label="Options", menu=options_menu)
@@ -208,6 +214,8 @@ class NetworkScannerApp:
         if self.show_vendor_var.get():
             columns.append("Vendor")
         columns.append("Device Name")
+        if self.show_os_var.get():
+            columns.append("OS Guess")
         if self.show_port_var.get():
             columns.append("Open Ports")
 
@@ -224,6 +232,8 @@ class NetworkScannerApp:
                 self.tree.column(col, anchor="center", stretch=True, width=140, minwidth=100)
             elif col == "Device Name":
                 self.tree.column(col, anchor="center", stretch=True, width=140, minwidth=100)
+            elif col == "OS Guess":
+                self.tree.column(col, anchor="center", stretch=True, width=100, minwidth=80)
             elif col == "Open Ports":
                 self.tree.column(col, anchor="center", stretch=True, width=130, minwidth=100)
 
@@ -242,6 +252,8 @@ class NetworkScannerApp:
         if self.show_vendor_var.get():
             row.append(device.get("vendor", "Not Fetched"))
         row.append(device.get("device_name", "Unknown"))
+        if self.show_os_var.get():
+            row.append(device.get("os_guess", "Unknown"))
         if self.show_port_var.get():
             ports = device.get("open_ports", [])
             row.append(",".join(map(str, ports)) if ports else "None")
@@ -277,13 +289,26 @@ class NetworkScannerApp:
             for device in devices:
                 device["vendor"] = "Not Fetched"
                 device["open_ports"] = []
+                device["os_guess"] = "Unknown"
 
             # Step 5: Get vendor info if enabled.
             if self.show_vendor_var.get():
                 for device in devices:
                     device["vendor"] = get_mac_vendor(device.get("mac", ""), self.mac_prefixes)
 
-            # Step 6: Scan open ports if enabled.
+            # Step 6: Get OS guess if enabled.
+            if self.show_os_var.get():
+                with ThreadPoolExecutor(max_workers=10) as executor:
+                    future_to_device = {
+                        executor.submit(guess_os, device["ip"]): device for device in devices
+                    }
+                    for future in as_completed(future_to_device):
+                        dev = future_to_device[future]
+                        try:
+                            dev["os_guess"] = future.result()
+                        except Exception:
+                            dev["os_guess"] = "Unknown"
+            # Step 7: Scan open ports if enabled.
             if self.show_port_var.get():
                 with ThreadPoolExecutor(max_workers=10) as executor:
                     future_to_device = {
