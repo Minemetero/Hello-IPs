@@ -4,8 +4,8 @@ import subprocess
 import os
 import platform
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from scapy.all import ARP, Ether, srp, conf
+import asyncio
+from scapy.all import ARP, Ether, conf, AsyncSniffer, sendp
 from .utils.logger import CommonLogger
 
 # Configure Scapy
@@ -107,53 +107,65 @@ def get_ip_range():
         logger.error(f"Failed to determine local IP range: {e}")
         raise
 
-def scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
+async def scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
+    """Asynchronously scan a subnet for active devices."""
     results = []
-    
+
     if not check_npcap():
         logger.warning("NPCAP not available, scanning may be limited")
-    
+
     arp_req = ARP(pdst=str(subnet))
     broadcast = Ether(dst="ff:ff:ff:ff:ff:ff")
     packet = broadcast / arp_req
-    
+
     try:
-        answered = srp(packet, timeout=timeout, retry=retry, verbose=False)[0]
+        sniffer = AsyncSniffer(filter="arp and arp[6:2] == 2", timeout=timeout)
+        sniffer.start()
+        await asyncio.to_thread(sendp, packet, verbose=False)
+        await asyncio.sleep(timeout)
+        answered = sniffer.stop()
         logger.info(f"Found {len(answered)} devices in subnet {subnet}")
     except Exception as e:
         logger.error(f"Error scanning subnet {subnet}: {e}")
         return results
-        
-    for element in answered:
-        device = {
-            'ip': element[1].psrc,
-            'mac': element[1].hwsrc,
-            'vendor': get_mac_vendor(element[1].hwsrc, mac_prefixes),
-            'device_name': get_device_name(element[1].psrc)
-        }
-        results.append(device)
+
+    for pkt in answered:
+        if ARP in pkt and pkt[ARP].op == 2:
+            device = {
+                'ip': pkt[ARP].psrc,
+                'mac': pkt[ARP].hwsrc,
+                'vendor': get_mac_vendor(pkt[ARP].hwsrc, mac_prefixes),
+                'device_name': get_device_name(pkt[ARP].psrc)
+            }
+            results.append(device)
     return results
 
-def scan_network(ip_range, mac_prefixes, max_workers=10, subnet_prefix=24):
+async def scan_network(ip_range, mac_prefixes, max_workers=10, subnet_prefix=24):
+    """Asynchronously scan a network by scanning subnets concurrently."""
     devices = []
     try:
         subnets = list(ip_range.subnets(new_prefix=subnet_prefix))
-        logger.info(f"Scanning {len(subnets)} subnets with {max_workers} workers")
-        
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_subnet = {
-                executor.submit(scan_subnet, subnet, mac_prefixes): subnet 
-                for subnet in subnets
-            }
-            
-            for future in as_completed(future_to_subnet):
-                try:
-                    devices.extend(future.result())
-                except Exception as e:
-                    logger.error(f"Error processing subnet: {e}")
-                    
+        logger.info(
+            f"Scanning {len(subnets)} subnets with up to {max_workers} workers"
+        )
+
+        semaphore = asyncio.Semaphore(max_workers)
+
+        async def worker(subnet):
+            async with semaphore:
+                return await scan_subnet(subnet, mac_prefixes)
+
+        tasks = [asyncio.create_task(worker(subnet)) for subnet in subnets]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for result in results:
+            if isinstance(result, Exception):
+                logger.error(f"Error processing subnet: {result}")
+            else:
+                devices.extend(result)
+
         logger.info(f"Scan completed. Found {len(devices)} devices")
     except Exception as e:
         logger.error(f"Network scan failed: {e}")
-        
+
     return devices
