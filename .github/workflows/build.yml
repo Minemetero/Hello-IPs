@@ -93,7 +93,7 @@ jobs:
 
       - name: 🔍 Verify app bundle creation
         run: |
-          if [ ! -d "main.app" ]; then
+          if [ ! -d "hello_ips.app" ]; then
             echo "App bundle not created. Listing directory contents:"
             ls -la
             exit 1
@@ -103,17 +103,17 @@ jobs:
       - name: 📦 Create DMG package
         run: |
           mkdir -p dmg_contents
-          cp -r main.app dmg_contents/
+          cp -r hello_ips.app dmg_contents/
           hdiutil create -volname "Hello IPs" -srcfolder dmg_contents -ov -format UDZO hello_ips.dmg
 
       - name: 📎 Calculate SHA-256 Hash (macOS)
         run: |
           # Calculate hash for DMG
           shasum -a 256 hello_ips.dmg > sha256sum_macos_dmg.txt
-          
+
           # Calculate hash for app bundle by creating a tar archive first
-          tar -czf main.app.tar.gz main.app
-          shasum -a 256 main.app.tar.gz > sha256sum_macos_app.txt
+          tar -czf hello_ips.app.tar.gz hello_ips.app
+          shasum -a 256 hello_ips.app.tar.gz > sha256sum_macos_app.txt
           
           # Display the hashes
           echo "DMG Hash:"
@@ -126,9 +126,9 @@ jobs:
         with:
           name: macos-artifacts
           path: |
-            main.app
+            hello_ips.app
             hello_ips.dmg
-            main.app.tar.gz
+            hello_ips.app.tar.gz
             sha256sum_macos_dmg.txt
             sha256sum_macos_app.txt
 
@@ -172,7 +172,7 @@ jobs:
           files: |
             artifacts/windows-artifacts/hello_ips.exe
             artifacts/macos-artifacts/hello_ips.dmg
-            artifacts/macos-artifacts/main.app.tar.gz
+            artifacts/macos-artifacts/hello_ips.app.tar.gz
             artifacts/windows-artifacts/sha256sum_windows.txt
             artifacts/macos-artifacts/sha256sum_macos_dmg.txt
             artifacts/macos-artifacts/sha256sum_macos_app.txt
