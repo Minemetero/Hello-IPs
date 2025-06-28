@@ -19,11 +19,10 @@
    - Simply double-click to run the application
    - If Windows SmartScreen appears, click "More info" and then "Run anyway"
 
-### ~~macOS Users~~
-1. **Download and Run:**
-   - Go to the [Releases](https://github.com/Minemetero/Hello-IPs/releases) page
-   - Download the latest `hello_ips.dmg` file
-   - Double-click to run the application
+### macOS Users
+Hello-IPs no longer ships a DMG package. To run the application on
+macOS, clone the repository and execute it from the Python sources.
+The steps are the same as for Linux users below.
 
 ### Linux Users
 1. **Clone the Repository:**

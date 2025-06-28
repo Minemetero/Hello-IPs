@@ -61,80 +61,10 @@ jobs:
             hello_ips.exe
             sha256sum_windows.txt
 
-  build-macos:
-    name: Build macOS
-    runs-on: macos-latest
-
-    steps:
-      - name: 🧾 Checkout code
-        uses: actions/checkout@v3
-
-      - name: 🐍 Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: 📦 Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install nuitka scapy
-
-      - name: 🔨 Build application bundle with Nuitka
-        run: |
-          python -m nuitka main.py \
-            --standalone \
-            --macos-create-app-bundle \
-            --enable-plugin=tk-inter \
-            --include-data-dir=data=data \
-            --output-filename=hello_ips \
-            --disable-ccache \
-            --macos-app-icon=none \
-            --macos-disable-console
-
-      - name: 🔍 Verify app bundle creation
-        run: |
-          if [ ! -d "hello_ips.app" ]; then
-            echo "App bundle not created. Listing directory contents:"
-            ls -la
-            exit 1
-          fi
-          echo "✅ App bundle created successfully"
-
-      - name: 📦 Create DMG package
-        run: |
-          mkdir -p dmg_contents
-          cp -r hello_ips.app dmg_contents/
-          hdiutil create -volname "Hello IPs" -srcfolder dmg_contents -ov -format UDZO hello_ips.dmg
-
-      - name: 📎 Calculate SHA-256 Hash (macOS)
-        run: |
-          # Calculate hash for DMG
-          shasum -a 256 hello_ips.dmg > sha256sum_macos_dmg.txt
-
-          # Calculate hash for app bundle by creating a tar archive first
-          tar -czf hello_ips.app.tar.gz hello_ips.app
-          shasum -a 256 hello_ips.app.tar.gz > sha256sum_macos_app.txt
-          
-          # Display the hashes
-          echo "DMG Hash:"
-          cat sha256sum_macos_dmg.txt
-          echo "App Bundle Hash:"
-          cat sha256sum_macos_app.txt
-
-      - name: 📤 Upload macOS artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-artifacts
-          path: |
-            hello_ips.app
-            hello_ips.dmg
-            hello_ips.app.tar.gz
-            sha256sum_macos_dmg.txt
-            sha256sum_macos_app.txt
 
   create-release:
     name: Create Release
-    needs: [build-windows, build-macos]
+    needs: [build-windows]
     if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
 
@@ -156,10 +86,7 @@ jobs:
         run: |
           echo "Windows SHA-256:" > release_notes.txt
           cat artifacts/windows-artifacts/sha256sum_windows.txt >> release_notes.txt
-          echo -e "\nmacOS DMG SHA-256:" >> release_notes.txt
-          cat artifacts/macos-artifacts/sha256sum_macos_dmg.txt >> release_notes.txt
-          echo -e "\nmacOS APP Bundle SHA-256:" >> release_notes.txt
-          cat artifacts/macos-artifacts/sha256sum_macos_app.txt >> release_notes.txt
+          
 
       - name: 🚀 Create Release
         uses: softprops/action-gh-release@v1
@@ -171,10 +98,6 @@ jobs:
           prerelease: false
           files: |
             artifacts/windows-artifacts/hello_ips.exe
-            artifacts/macos-artifacts/hello_ips.dmg
-            artifacts/macos-artifacts/hello_ips.app.tar.gz
             artifacts/windows-artifacts/sha256sum_windows.txt
-            artifacts/macos-artifacts/sha256sum_macos_dmg.txt
-            artifacts/macos-artifacts/sha256sum_macos_app.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
