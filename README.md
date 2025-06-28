@@ -67,8 +67,8 @@ The tool concurrently discovers devices via ARP scanning and gathers rich inform
 - **Concurrent Scanning:**  
   Scans each /24 subnet concurrently to speed up device discovery.
   
-- **Rich Device Information:**  
-  Retrieves IP, MAC, vendor, device name, and optionally probes common open ports (e.g., 22, 23, 80, 443, 3389).
+- **Rich Device Information:**
+  Retrieves IP, MAC, vendor, device name, and optionally probes common open ports (e.g., 22, 23, 80, 443, 3389). The scanner can also guess the operating system of each device based on TTL values.
 
 - **Multiple Blocking Options:**  
   Choose from seven methods:
@@ -80,8 +80,8 @@ The tool concurrently discovers devices via ARP scanning and gathers rich inform
   - TCP SYN Flood (experimental)
   - DNS Amplification (experimental)
 
-- **User-Friendly GUI:**  
-  Built with Tkinter, the interface features a clear control layout.
+- **User-Friendly GUI:**
+  Built with Tkinter, the interface features a clear control layout. Columns for vendor, open ports, and OS guesses can be toggled on or off.
 
 ## Project Structure
 
@@ -110,7 +110,7 @@ project_root/
 
 1. **Using the GUI:**
    - Click **"Scan Network"** to start scanning.
-   - The table will display discovered devices along with IP, MAC, vendor, device name, and open ports.
+   - The table will display discovered devices along with IP, MAC, vendor, device name, guessed OS, and open ports.
    - To block a device, select it from the table, choose a blocking method from the dropdown (seven options available), and specify a duration.
    - Click **"Block Selected Device"** to initiate the blocking process.
 
