@@ -68,7 +68,10 @@ The tool concurrently discovers devices via ARP scanning and gathers rich inform
   Scans each /24 subnet concurrently to speed up device discovery.
   
 - **Rich Device Information:**
-  Retrieves IP, MAC, vendor, device name, and optionally probes common open ports (e.g., 22, 23, 80, 443, 3389). The scanner can also guess the operating system of each device based on TTL values.
+  Retrieves IP, MAC, vendor, device name, and optionally probes common open ports (e.g., 22, 23, 80, 443, 3389). The scanner can also fingerprint the operating system by analyzing TTL values, TCP options, and service banners.
+
+- **Enhanced OS Fingerprinting:**
+  When enabled, Hello-IPs performs additional probes (TCP SYN and banner grabs) to refine the OS guess beyond basic TTL analysis.
 
 - **Multiple Blocking Options:**  
   Choose from seven methods:
