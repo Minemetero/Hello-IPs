@@ -15,8 +15,11 @@ def export_logs(parent_window=None):
         bool: True if export was successful, False otherwise
     """
     try:
-        # Get the current log file path
-        log_file = 'scanner.log'
+        # Get the current log file path from the CommonLogger instance
+        # so we export the same log file that is being written by the
+        # application. This ensures consistency with CommonLogger._log_file
+        # ("hello-ips.log").
+        log_file = getattr(logger, "_log_file", "hello-ips.log")
         if not os.path.exists(log_file):
             if parent_window:
                 messagebox.showwarning("No Logs", "No log file found to export.")
