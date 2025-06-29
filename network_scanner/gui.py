@@ -15,6 +15,7 @@ from .topology import (
     get_node_degrees,
     get_betweenness_centrality,
     detect_communities,
+    export_graph,
 )
 from .utils.log_saver import export_logs
 
@@ -91,6 +92,7 @@ class NetworkScannerApp:
         file_menu = tk.Menu(menubar, tearoff=0)
         file_menu.add_command(label="Save Results", command=self.save_results)
         file_menu.add_command(label="Open File", command=self.view_saved_results)
+        file_menu.add_command(label="Export Topology", command=self.export_topology)
         file_menu.add_separator()
         file_menu.add_command(label="Export Logs", command=lambda: export_logs(self.master))
         file_menu.add_separator()
@@ -371,6 +373,27 @@ class NetworkScannerApp:
         logger.info(metrics_msg)
         messagebox.showinfo("Network Metrics", metrics_msg)
         visualize_topology(self.network_graph)
+
+    def export_topology(self):
+        if not self.network_graph or self.network_graph.number_of_nodes() == 0:
+            messagebox.showinfo("Export Topology", "No topology data available. Please run a scan first.")
+            return
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".graphml",
+            filetypes=[
+                ("GraphML files", "*.graphml"),
+                ("DOT files", "*.dot"),
+                ("All files", "*.*"),
+            ],
+        )
+        if file_path:
+            ext = os.path.splitext(file_path)[1].lower()
+            fmt = "dot" if ext == ".dot" else "graphml"
+            try:
+                export_graph(self.network_graph, file_path, fmt)
+                messagebox.showinfo("Export Successful", f"Topology saved to {file_path}")
+            except Exception as e:
+                messagebox.showerror("Export Error", f"Failed to export topology: {e}")
 
     # ----------------------- Blocking -----------------------
     def update_block_parameters(self, *args):

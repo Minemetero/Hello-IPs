@@ -1,6 +1,8 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 from networkx.algorithms import community as nx_community
+from pathlib import Path
+
 
 
 def visualize_topology(graph):
@@ -45,5 +47,27 @@ def detect_communities(graph):
         return []
     communities = nx_community.greedy_modularity_communities(graph)
     return [list(c) for c in communities]
+
+
+def export_graph(graph, file_path, fmt="graphml"):
+    """Export the network graph to GraphML or DOT format."""
+    if graph is None or graph.number_of_nodes() == 0:
+        raise ValueError("Graph is empty")
+
+    path = Path(file_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    fmt = fmt.lower()
+    if fmt == "graphml":
+        nx.write_graphml(graph, path)
+    elif fmt == "dot":
+        try:
+            from networkx.drawing.nx_pydot import write_dot
+        except Exception as e:  # pragma: no cover - pydot may not be installed
+            raise RuntimeError("DOT export requires pydot") from e
+        write_dot(graph, path)
+    else:
+        raise ValueError(f"Unsupported format: {fmt}")
+
 
 

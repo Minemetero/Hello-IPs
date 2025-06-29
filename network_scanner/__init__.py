@@ -4,6 +4,7 @@ from .topology import (
     get_node_degrees,
     get_betweenness_centrality,
     detect_communities,
+    export_graph,
 )
 
 __all__ = [
@@ -13,5 +14,6 @@ __all__ = [
     'get_node_degrees',
     'get_betweenness_centrality',
     'detect_communities',
+    'export_graph',
 ]
 

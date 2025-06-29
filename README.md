@@ -84,6 +84,8 @@ The tool concurrently discovers devices via ARP scanning and gathers rich inform
 
 - **User-Friendly GUI:**
   Built with Tkinter, the interface features a clear control layout. Columns for vendor, open ports, and OS guesses can be toggled on or off.
+- **Network Topology Visualization and Export:**
+  After scanning, view the network graph with metrics and export it to GraphML or DOT for further analysis.
 
 ## Project Structure
 
@@ -115,6 +117,8 @@ project_root/
    - The table will display discovered devices along with IP, MAC, vendor, device name, guessed OS, and open ports.
    - To block a device, select it from the table, choose a blocking method from the dropdown (seven options available), and specify a duration.
    - Click **"Block Selected Device"** to initiate the blocking process.
+   - Click **"Show Topology"** to visualize the discovered network graph.
+   - Use **File \> Export Topology** to save the current graph as GraphML or DOT.
 
 ## Packaging
 
