@@ -173,13 +173,18 @@ async def scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
         logger.error(f"Error scanning subnet {subnet}: {e}")
         return results
 
+    seen = {}
     for pkt in answered:
         if ARP in pkt and pkt[ARP].op == 2:
+            ip = pkt[ARP].psrc
+            if ip in seen:
+                continue
+            seen[ip] = True
             device = {
-                'ip': pkt[ARP].psrc,
+                'ip': ip,
                 'mac': pkt[ARP].hwsrc,
                 'vendor': get_mac_vendor(pkt[ARP].hwsrc, mac_prefixes),
-                'device_name': get_device_name(pkt[ARP].psrc)
+                'device_name': get_device_name(ip),
             }
             results.append(device)
     return results
@@ -208,6 +213,14 @@ async def scan_network(ip_range, mac_prefixes, max_workers=10, subnet_prefix=24)
                 logger.error(f"Error processing subnet: {result}")
             else:
                 devices.extend(result)
+
+        # Deduplicate by IP in case multiple replies were captured
+        deduped = {}
+        for dev in devices:
+            ip = dev.get('ip')
+            if ip and ip not in deduped:
+                deduped[ip] = dev
+        devices = list(deduped.values())
 
         # Add nodes for each device
         for device in devices:
