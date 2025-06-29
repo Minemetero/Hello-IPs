@@ -34,6 +34,7 @@ class NetworkScannerApp:
         self.network = None
         self.current_devices = []
         self.mac_prefixes = {}
+        self.network_graph = None
 
         # Set up logger callback
         logger.set_status_callback(self.update_status)
@@ -284,7 +285,9 @@ class NetworkScannerApp:
             self.network = ip_range
 
             # Step 4: Scan the network asynchronously.
-            devices = asyncio.run(scan_network(ip_range, self.mac_prefixes))
+            devices, self.network_graph = asyncio.run(
+                scan_network(ip_range, self.mac_prefixes)
+            )
 
             # Initialize vendor and port info.
             for device in devices:

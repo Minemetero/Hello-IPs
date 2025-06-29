@@ -5,6 +5,7 @@ import os
 import platform
 import logging
 import asyncio
+import networkx as nx
 from scapy.all import ARP, Ether, conf, AsyncSniffer, sendp
 from .utils.path_utils import resource_path
 from .utils.logger import CommonLogger
@@ -92,6 +93,32 @@ def get_device_name(ip, timeout=1):
                 logger.debug(f"Failed to get NetBIOS name for {ip}: {e}")
         return "Unknown"
 
+def get_traceroute_hops(ip, max_hops=5):
+    """Return a list of hop IPs from a traceroute to the target."""
+    hops = []
+    try:
+        if platform.system().lower() == "windows":
+            cmd = ["tracert", "-d", "-h", str(max_hops), ip]
+        else:
+            cmd = ["traceroute", "-n", "-m", str(max_hops), ip]
+
+        output = subprocess.check_output(
+            cmd,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=max_hops * 2,
+        )
+
+        for line in output.splitlines():
+            parts = line.split()
+            if parts and parts[0].isdigit():
+                hop_ip = parts[1]
+                if hop_ip != "*":
+                    hops.append(hop_ip)
+    except Exception as e:
+        logger.debug(f"Traceroute failed for {ip}: {e}")
+    return hops
+
 def get_subnet_mask(ip):
     if platform.system().lower() == "windows":
         try:
@@ -159,6 +186,7 @@ async def scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
 async def scan_network(ip_range, mac_prefixes, max_workers=10, subnet_prefix=24):
     """Asynchronously scan a network by scanning subnets concurrently."""
     devices = []
+    graph = nx.Graph()
     try:
         subnets = list(ip_range.subnets(new_prefix=subnet_prefix))
         logger.info(
@@ -180,8 +208,36 @@ async def scan_network(ip_range, mac_prefixes, max_workers=10, subnet_prefix=24)
             else:
                 devices.extend(result)
 
+        # Add nodes for each device
+        for device in devices:
+            graph.add_node(
+                device["ip"],
+                ip=device.get("ip"),
+                mac=device.get("mac"),
+                vendor=device.get("vendor"),
+            )
+
+        # Edges for same subnet
+        subnet_map = {
+            dev["ip"]: ipaddress.ip_network(f"{dev['ip']}/{subnet_prefix}", strict=False)
+            for dev in devices
+        }
+        for d1 in devices:
+            for d2 in devices:
+                if d1 is d2:
+                    continue
+                if subnet_map[d1["ip"]] == subnet_map[d2["ip"]]:
+                    graph.add_edge(d1["ip"], d2["ip"], relation="subnet")
+
+        # Edges discovered via traceroute
+        for device in devices:
+            hops = get_traceroute_hops(device["ip"])
+            for hop in hops:
+                if graph.has_node(hop) and hop != device["ip"]:
+                    graph.add_edge(device["ip"], hop, relation="traceroute")
+
         logger.info(f"Scan completed. Found {len(devices)} devices")
     except Exception as e:
         logger.error(f"Network scan failed: {e}")
 
-    return devices
+    return devices, graph
