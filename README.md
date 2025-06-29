@@ -85,7 +85,7 @@ The tool concurrently discovers devices via ARP scanning and gathers rich inform
 - **User-Friendly GUI:**
   Built with Tkinter, the interface features a clear control layout. Columns for vendor, open ports, and OS guesses can be toggled on or off.
 - **Network Topology Visualization and Export:**
-  After scanning, view the network graph with metrics and export it to GraphML or DOT for further analysis. Devices are grouped by subnet to avoid overly dense connections.
+  After scanning, view the network graph with metrics and export it to GraphML or DOT for further analysis. Devices are grouped by subnet to avoid overly dense connections. Metric summaries are formatted for readability.
 
 ## Project Structure
 

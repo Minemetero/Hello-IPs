@@ -5,6 +5,7 @@ from .topology import (
     get_betweenness_centrality,
     detect_communities,
     export_graph,
+    format_metrics,
 )
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     'get_betweenness_centrality',
     'detect_communities',
     'export_graph',
+    'format_metrics',
 ]
 

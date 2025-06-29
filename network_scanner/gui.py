@@ -16,6 +16,7 @@ from .topology import (
     get_betweenness_centrality,
     detect_communities,
     export_graph,
+    format_metrics,
 )
 from .utils.log_saver import export_logs
 
@@ -362,14 +363,7 @@ class NetworkScannerApp:
         if not self.network_graph or self.network_graph.number_of_nodes() == 0:
             messagebox.showinfo("Topology", "No topology data available. Please run a scan first.")
             return
-        degrees = get_node_degrees(self.network_graph)
-        centrality = get_betweenness_centrality(self.network_graph)
-        communities = detect_communities(self.network_graph)
-        metrics_msg = (
-            f"Degrees: {degrees}\n"
-            f"Betweenness: {centrality}\n"
-            f"Communities: {communities}"
-        )
+        metrics_msg = format_metrics(self.network_graph)
         logger.info(metrics_msg)
         messagebox.showinfo("Network Metrics", metrics_msg)
         visualize_topology(self.network_graph)

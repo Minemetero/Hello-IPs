@@ -3,8 +3,6 @@ import matplotlib.pyplot as plt
 from networkx.algorithms import community as nx_community
 from pathlib import Path
 
-
-
 def visualize_topology(graph):
     """Display the network topology using matplotlib."""
     if graph is None or len(graph.nodes) == 0:
@@ -47,6 +45,30 @@ def detect_communities(graph):
         return []
     communities = nx_community.greedy_modularity_communities(graph)
     return [list(c) for c in communities]
+
+
+def format_metrics(graph):
+    """Return a human-readable string summarizing basic topology metrics."""
+    if graph is None or graph.number_of_nodes() == 0:
+        return "No topology data"
+
+    degrees = get_node_degrees(graph)
+    centrality = get_betweenness_centrality(graph)
+    communities = detect_communities(graph)
+
+    lines = ["Node Degrees:"]
+    for node, deg in degrees.items():
+        lines.append(f"  {node}: {deg}")
+
+    lines.append("\nBetweenness Centrality:")
+    for node, val in centrality.items():
+        lines.append(f"  {node}: {val:.2f}")
+
+    lines.append("\nCommunities:")
+    for comm in communities:
+        lines.append("  " + ", ".join(comm))
+
+    return "\n".join(lines)
 
 
 def export_graph(graph, file_path, fmt="graphml"):
