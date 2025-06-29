@@ -130,7 +130,17 @@ class NetworkScannerApp:
         self.save_button = ttk.Button(parent, text="Save Results", command=self.save_results)
         self.save_button.grid(row=0, column=1, padx=5, pady=5)
 
-        parent.columnconfigure(2, weight=1)
+        ttk.Label(parent, text="Retries:").grid(row=0, column=2, padx=(10, 2), pady=5)
+        self.retry_var = tk.IntVar(value=2)
+        self.retry_entry = ttk.Entry(parent, textvariable=self.retry_var, width=5)
+        self.retry_entry.grid(row=0, column=3, padx=(0, 5), pady=5)
+
+        ttk.Label(parent, text="Timeout(s):").grid(row=0, column=4, padx=(10, 2), pady=5)
+        self.timeout_var = tk.DoubleVar(value=5)
+        self.timeout_entry = ttk.Entry(parent, textvariable=self.timeout_var, width=5)
+        self.timeout_entry.grid(row=0, column=5, padx=(0, 5), pady=5)
+
+        parent.columnconfigure(6, weight=1)
 
     def create_treeview(self, parent):
         # Container for the treeview + scrollbar
@@ -284,7 +294,19 @@ class NetworkScannerApp:
             self.network = ip_range
 
             # Step 4: Scan the network asynchronously.
-            devices = asyncio.run(scan_network(ip_range, self.mac_prefixes))
+            retry = max(1, self.retry_var.get())
+            try:
+                timeout = float(self.timeout_var.get())
+            except Exception:
+                timeout = 5
+            devices = asyncio.run(
+                scan_network(
+                    ip_range,
+                    self.mac_prefixes,
+                    timeout=timeout,
+                    retry=retry,
+                )
+            )
 
             # Initialize vendor and port info.
             for device in devices:

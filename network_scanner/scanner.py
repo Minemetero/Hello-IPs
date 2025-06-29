@@ -163,7 +163,7 @@ def get_ip_range():
         logger.error(f"Failed to determine local IP range: {e}")
         raise
 
-async def scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
+async def scan_subnet(subnet, mac_prefixes, timeout=5, retry=2):
     """Asynchronously scan a subnet for active devices."""
     results = []
 
@@ -178,7 +178,9 @@ async def scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
         # Use AsyncSniffer without a timeout so we control when to stop it.
         sniffer = AsyncSniffer(filter="arp and arp[6:2] == 2")
         sniffer.start()
-        await asyncio.to_thread(sendp, packet, verbose=False)
+        for _ in range(max(1, retry)):
+            await asyncio.to_thread(sendp, packet, verbose=False)
+            await asyncio.sleep(0.5)
         await asyncio.sleep(timeout)
         # sniffer.stop() returns the captured packets.
         answered = sniffer.stop()
@@ -198,7 +200,14 @@ async def scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
             results.append(device)
     return results
 
-async def scan_network(ip_range, mac_prefixes, max_workers=10, subnet_prefix=24):
+async def scan_network(
+    ip_range,
+    mac_prefixes,
+    max_workers=10,
+    subnet_prefix=24,
+    timeout=5,
+    retry=2,
+):
     """Asynchronously scan a network by scanning subnets concurrently."""
     devices = []
     try:
@@ -211,7 +220,7 @@ async def scan_network(ip_range, mac_prefixes, max_workers=10, subnet_prefix=24)
 
         async def worker(subnet):
             async with semaphore:
-                return await scan_subnet(subnet, mac_prefixes)
+                return await scan_subnet(subnet, mac_prefixes, timeout=timeout, retry=retry)
 
         tasks = [asyncio.create_task(worker(subnet)) for subnet in subnets]
         results = await asyncio.gather(*tasks, return_exceptions=True)
