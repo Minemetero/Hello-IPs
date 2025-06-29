@@ -5,7 +5,20 @@ import os
 import platform
 import logging
 import asyncio
-from scapy.all import ARP, Ether, conf, AsyncSniffer, sendp
+from scapy.all import (
+    ARP,
+    Ether,
+    IPv6,
+    ICMPv6ND_NS,
+    ICMPv6ND_NA,
+    ICMPv6NDOptSrcLLAddr,
+    AsyncSniffer,
+    conf,
+    sendp,
+    in6_getnsma,
+    in6_getnsmac,
+    get_if_hwaddr,
+)
 from .utils.path_utils import resource_path
 from .utils.logger import CommonLogger
 
@@ -121,6 +134,21 @@ def get_ip_range():
         logger.error(f"Failed to determine local IP range: {e}")
         raise
 
+def get_ipv6_range(prefix_len=64):
+    """Return the local IPv6 network."""
+    try:
+        hostname = socket.gethostname()
+        infos = socket.getaddrinfo(hostname, None, socket.AF_INET6)
+        if not infos:
+            raise RuntimeError("No IPv6 address found")
+        local_ip = infos[0][4][0]
+        network = ipaddress.IPv6Network(f"{local_ip}/{prefix_len}", strict=False)
+        logger.info(f"Detected local IPv6 network: {network}")
+        return network
+    except Exception as e:
+        logger.error(f"Failed to determine local IPv6 range: {e}")
+        raise
+
 async def scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
     """Asynchronously scan a subnet for active devices."""
     results = []
@@ -156,10 +184,67 @@ async def scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
             results.append(device)
     return results
 
-async def scan_network(ip_range, mac_prefixes, max_workers=10, subnet_prefix=24):
-    """Asynchronously scan a network by scanning subnets concurrently."""
+async def scan_subnet_ipv6(subnet, mac_prefixes, timeout=3):
+    """Asynchronously scan an IPv6 subnet using Neighbor Discovery."""
+    results = []
+
+    if not check_npcap():
+        logger.warning("NPCAP not available, scanning may be limited")
+
+    try:
+        sniffer = AsyncSniffer(filter="icmp6 and ip6[40] == 136")
+        sniffer.start()
+
+        for ip in subnet.hosts():
+            nsma = in6_getnsma(str(ip))
+            nsmac = in6_getnsmac(nsma)
+            src_mac = get_if_hwaddr(conf.iface)
+            pkt = (
+                Ether(dst=nsmac, src=src_mac)
+                / IPv6(dst=nsma)
+                / ICMPv6ND_NS(tgt=str(ip))
+                / ICMPv6NDOptSrcLLAddr(lladdr=src_mac)
+            )
+            await asyncio.to_thread(sendp, pkt, verbose=False)
+
+        await asyncio.sleep(timeout)
+        answered = sniffer.stop()
+        logger.info(f"Found {len(answered)} IPv6 responses in subnet {subnet}")
+    except Exception as e:
+        logger.error(f"Error scanning IPv6 subnet {subnet}: {e}")
+        return results
+
+    seen = set()
+    for pkt in answered:
+        if ICMPv6ND_NA in pkt:
+            ip_addr = pkt[IPv6].src
+            mac = pkt[Ether].src if pkt.haslayer(Ether) else ""
+            if ip_addr in seen:
+                continue
+            seen.add(ip_addr)
+            results.append(
+                {
+                    "ip": ip_addr,
+                    "mac": mac,
+                    "vendor": get_mac_vendor(mac, mac_prefixes),
+                    "device_name": get_device_name(ip_addr),
+                }
+            )
+    return results
+
+async def scan_network(ip_range, mac_prefixes, max_workers=10, subnet_prefix=None):
+    """Asynchronously scan an IPv4 or IPv6 network."""
     devices = []
     try:
+        if isinstance(ip_range, ipaddress.IPv6Network):
+            scan_func = scan_subnet_ipv6
+            if subnet_prefix is None:
+                subnet_prefix = 120
+        else:
+            scan_func = scan_subnet
+            if subnet_prefix is None:
+                subnet_prefix = 24
+
         subnets = list(ip_range.subnets(new_prefix=subnet_prefix))
         logger.info(
             f"Scanning {len(subnets)} subnets with up to {max_workers} workers"
@@ -169,7 +254,7 @@ async def scan_network(ip_range, mac_prefixes, max_workers=10, subnet_prefix=24)
 
         async def worker(subnet):
             async with semaphore:
-                return await scan_subnet(subnet, mac_prefixes)
+                return await scan_func(subnet, mac_prefixes)
 
         tasks = [asyncio.create_task(worker(subnet)) for subnet in subnets]
         results = await asyncio.gather(*tasks, return_exceptions=True)

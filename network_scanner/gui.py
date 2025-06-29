@@ -4,7 +4,15 @@ import threading
 import os
 import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from .scanner import check_npcap, load_mac_prefixes, get_ip_range, scan_network, get_mac_vendor, logger
+from .scanner import (
+    check_npcap,
+    load_mac_prefixes,
+    get_ip_range,
+    get_ipv6_range,
+    scan_network,
+    get_mac_vendor,
+    logger,
+)
 from .block import (block_via_arp_poison, block_via_arp_flood, block_via_arp_tornado,
                     block_via_mac_flood, block_via_icmp_unreachable, block_via_tcp_syn_flood,
                     block_via_dns_amplification)
@@ -29,6 +37,7 @@ class NetworkScannerApp:
         self.show_vendor_var = tk.BooleanVar(value=True)
         self.show_port_var = tk.BooleanVar(value=True)
         self.show_os_var = tk.BooleanVar(value=True)
+        self.use_ipv6_var = tk.BooleanVar(value=False)
 
         # Data storage
         self.network = None
@@ -130,7 +139,9 @@ class NetworkScannerApp:
         self.save_button = ttk.Button(parent, text="Save Results", command=self.save_results)
         self.save_button.grid(row=0, column=1, padx=5, pady=5)
 
-        parent.columnconfigure(2, weight=1)
+        self.ipv6_check = ttk.Checkbutton(parent, text="IPv6", variable=self.use_ipv6_var)
+        self.ipv6_check.grid(row=0, column=2, padx=5, pady=5)
+        parent.columnconfigure(3, weight=1)
 
     def create_treeview(self, parent):
         # Container for the treeview + scrollbar
@@ -279,8 +290,11 @@ class NetworkScannerApp:
             # locates the bundled data directory when packaged.
             self.mac_prefixes = load_mac_prefixes()
 
-            # Step 3: Get IP range.
-            ip_range = get_ip_range()
+            # Step 3: Get IP range (IPv4 or IPv6).
+            if self.use_ipv6_var.get():
+                ip_range = get_ipv6_range()
+            else:
+                ip_range = get_ip_range()
             self.network = ip_range
 
             # Step 4: Scan the network asynchronously.
