@@ -8,7 +8,7 @@ from .scanner import check_npcap, load_mac_prefixes, get_ip_range, scan_network,
 from .block import (block_via_arp_poison, block_via_arp_flood, block_via_arp_tornado,
                     block_via_mac_flood, block_via_icmp_unreachable, block_via_tcp_syn_flood,
                     block_via_dns_amplification)
-from .probe import probe_open_ports, guess_os
+from .probe import probe_open_ports, fingerprint_os
 from .utils import save_scan_results, FileViewer
 from .utils.log_saver import export_logs
 
@@ -275,9 +275,9 @@ class NetworkScannerApp:
             # Step 1: Check NPCAP installation.
             check_npcap()
 
-            # Step 2: Load MAC prefixes.
-            mac_prefix_path = os.path.join("data", "nmap-mac-prefixes.txt")
-            self.mac_prefixes = load_mac_prefixes(mac_prefix_path)
+            # Step 2: Load MAC prefixes. ``load_mac_prefixes`` automatically
+            # locates the bundled data directory when packaged.
+            self.mac_prefixes = load_mac_prefixes()
 
             # Step 3: Get IP range.
             ip_range = get_ip_range()
@@ -297,11 +297,11 @@ class NetworkScannerApp:
                 for device in devices:
                     device["vendor"] = get_mac_vendor(device.get("mac", ""), self.mac_prefixes)
 
-            # Step 6: Get OS guess if enabled.
+            # Step 6: Get OS guess if enabled using advanced fingerprinting.
             if self.show_os_var.get():
                 with ThreadPoolExecutor(max_workers=10) as executor:
                     future_to_device = {
-                        executor.submit(guess_os, device["ip"]): device for device in devices
+                        executor.submit(fingerprint_os, device["ip"]): device for device in devices
                     }
                     for future in as_completed(future_to_device):
                         dev = future_to_device[future]

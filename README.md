@@ -19,11 +19,10 @@
    - Simply double-click to run the application
    - If Windows SmartScreen appears, click "More info" and then "Run anyway"
 
-### ~~macOS Users~~
-1. **Download and Run:**
-   - Go to the [Releases](https://github.com/Minemetero/Hello-IPs/releases) page
-   - Download the latest `hello_ips.dmg` file
-   - Double-click to run the application
+### macOS Users
+Hello-IPs no longer ships a DMG package. To run the application on
+macOS, clone the repository and execute it from the Python sources.
+The steps are the same as for Linux users below.
 
 ### Linux Users
 1. **Clone the Repository:**
@@ -68,7 +67,10 @@ The tool concurrently discovers devices via ARP scanning and gathers rich inform
   Scans each /24 subnet concurrently to speed up device discovery.
   
 - **Rich Device Information:**
-  Retrieves IP, MAC, vendor, device name, and optionally probes common open ports (e.g., 22, 23, 80, 443, 3389). The scanner can also guess the operating system of each device based on TTL values.
+  Retrieves IP, MAC, vendor, device name, and optionally probes common open ports (e.g., 22, 23, 80, 443, 3389). The scanner can also fingerprint the operating system by analyzing TTL values, TCP options, and service banners.
+
+- **Enhanced OS Fingerprinting:**
+  When enabled, Hello-IPs performs additional probes (TCP SYN and banner grabs) to refine the OS guess beyond basic TTL analysis.
 
 - **Multiple Blocking Options:**  
   Choose from seven methods:
@@ -113,6 +115,14 @@ project_root/
    - The table will display discovered devices along with IP, MAC, vendor, device name, guessed OS, and open ports.
    - To block a device, select it from the table, choose a blocking method from the dropdown (seven options available), and specify a duration.
    - Click **"Block Selected Device"** to initiate the blocking process.
+
+## Packaging
+
+The scanner automatically resolves the location of its data files at runtime.
+When building a standalone executable with tools like Nuitka or PyInstaller,
+ensure the `data` directory is bundled next to the binary. The application uses
+an internal helper to locate `data/nmap-mac-prefixes.txt` relative to the
+executable, so no additional code changes are required.
 
 ## License
 

@@ -6,6 +6,7 @@ import platform
 import logging
 import asyncio
 from scapy.all import ARP, Ether, conf, AsyncSniffer, sendp
+from .utils.path_utils import resource_path
 from .utils.logger import CommonLogger
 
 # Configure Scapy
@@ -37,10 +38,23 @@ def check_npcap():
     
     return _npcap_available
 
-def load_mac_prefixes(file_path):
+def load_mac_prefixes(file_path=None):
+    """Load the vendor OUI mapping file.
+
+    If ``file_path`` is not provided or the file cannot be found,
+    ``resource_path`` is used to locate the bundled data file. This
+    ensures compatibility when the application is packaged with tools
+    like Nuitka or PyInstaller.
+    """
+
     mac_prefixes = {}
     try:
-        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+        if file_path and os.path.exists(file_path):
+            path = file_path
+        else:
+            path = resource_path("data", "nmap-mac-prefixes.txt")
+
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
             for line in f:
                 if line.strip():
                     parts = line.strip().split(None, 1)
