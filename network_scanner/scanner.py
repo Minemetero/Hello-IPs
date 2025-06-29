@@ -5,6 +5,7 @@ import os
 import platform
 import logging
 import asyncio
+import shutil
 from scapy.all import ARP, Ether, conf, AsyncSniffer, sendp
 from .utils.path_utils import resource_path
 from .utils.logger import CommonLogger
@@ -93,12 +94,11 @@ def get_device_name(ip, timeout=1):
         return "Unknown"
 
 def get_subnet_mask(ip):
-    if platform.system().lower() == "windows":
+    system = platform.system().lower()
+
+    if system == "windows":
         try:
             output = subprocess.check_output("ipconfig", shell=True, text=True)
-            os.makedirs("output", exist_ok=True)
-            with open(os.path.join("output", "ipconfig_output.txt"), "w") as f:
-                f.write(output)
             lines = output.splitlines()
             for i, line in enumerate(lines):
                 if ip in line:
@@ -107,6 +107,48 @@ def get_subnet_mask(ip):
                             return lines[j].split(":")[-1].strip()
         except Exception as e:
             logger.error(f"Error retrieving subnet mask: {e}")
+    else:
+        try:
+            try:
+                import netifaces  # type: ignore
+
+                for iface in netifaces.interfaces():
+                    addrs = netifaces.ifaddresses(iface).get(netifaces.AF_INET, [])
+                    for addr in addrs:
+                        if addr.get("addr") == ip and addr.get("netmask"):
+                            return addr.get("netmask")
+            except Exception as e:
+                logger.debug(f"netifaces unavailable or failed: {e}")
+
+            if shutil.which("ip"):
+                output = subprocess.check_output(
+                    ["ip", "-o", "-f", "inet", "addr", "show"], text=True
+                )
+                for line in output.splitlines():
+                    parts = line.split()
+                    if len(parts) >= 4 and "/" in parts[3]:
+                        addr, prefix = parts[3].split("/")
+                        if addr == ip:
+                            return str(ipaddress.IPv4Network(f"0.0.0.0/{prefix}").netmask)
+
+            if shutil.which("ifconfig"):
+                output = subprocess.check_output("ifconfig", shell=True, text=True)
+                lines = output.splitlines()
+                for i, line in enumerate(lines):
+                    if ip in line:
+                        for j in range(i, min(i + 5, len(lines))):
+                            if "netmask" in lines[j].lower():
+                                tokens = lines[j].split()
+                                if "netmask" in tokens:
+                                    idx = tokens.index("netmask") + 1
+                                    if idx < len(tokens):
+                                        mask = tokens[idx]
+                                        if mask.startswith("0x"):
+                                            mask = str(ipaddress.IPv4Address(int(mask, 16)))
+                                        return mask
+        except Exception as e:
+            logger.error(f"Error retrieving subnet mask: {e}")
+
     return "255.255.255.0"
 
 def get_ip_range():
