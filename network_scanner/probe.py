@@ -71,13 +71,35 @@ def fingerprint_os(ip, timeout=1):
 
     return os_guess
 
-def probe_open_ports(ip, ports=[22, 23, 80, 443, 3389], timeout=0.5):
+def probe_open_ports(ip, ports=None, timeout=0.5):
+    """Probe a host for open TCP ports.
+
+    Parameters
+    ----------
+    ip : str
+        Target IP address.
+    ports : Iterable[int] or range, optional
+        Collection of ports to probe.  If ``None`` a small list of common ports
+        is used.  ``range`` objects are also accepted and will be expanded.
+    timeout : float, optional
+        Connection timeout in seconds.
+    """
+
+    default_ports = [22, 23, 80, 443, 3389]
+    if ports is None:
+        ports_to_scan = default_ports
+    elif isinstance(ports, range):
+        ports_to_scan = list(ports)
+    else:
+        # Convert any iterable (list, tuple, set, etc.) to a list
+        ports_to_scan = list(ports)
+
     open_ports = []
-    for port in ports:
+    for port in ports_to_scan:
         try:
-            sock = socket.create_connection((ip, port), timeout)
+            sock = socket.create_connection((ip, int(port)), timeout)
             sock.close()
-            open_ports.append(port)
+            open_ports.append(int(port))
         except Exception:
             continue
     return open_ports

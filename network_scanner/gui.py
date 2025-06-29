@@ -34,6 +34,7 @@ class NetworkScannerApp:
         self.network = None
         self.current_devices = []
         self.mac_prefixes = {}
+        self.selected_ports = [22, 23, 80, 443, 3389]
 
         # Set up logger callback
         logger.set_status_callback(self.update_status)
@@ -130,7 +131,17 @@ class NetworkScannerApp:
         self.save_button = ttk.Button(parent, text="Save Results", command=self.save_results)
         self.save_button.grid(row=0, column=1, padx=5, pady=5)
 
-        parent.columnconfigure(2, weight=1)
+        ttk.Label(parent, text="Ports:").grid(row=0, column=2, sticky="e", padx=(5, 2), pady=5)
+        self.port_var = tk.StringVar(value="22,23,80,443,3389")
+        self.port_entry = ttk.Entry(parent, textvariable=self.port_var, width=15)
+        self.port_entry.grid(row=0, column=3, sticky="w", padx=(2, 5), pady=5)
+
+        self.port_profile_var = tk.StringVar(value="Custom")
+        profiles = ["Custom", "Common", "1-1024"]
+        self.port_profile_menu = ttk.OptionMenu(parent, self.port_profile_var, "Custom", *profiles, command=self.apply_port_profile)
+        self.port_profile_menu.grid(row=0, column=4, padx=5, pady=5)
+
+        parent.columnconfigure(5, weight=1)
 
     def create_treeview(self, parent):
         # Container for the treeview + scrollbar
@@ -260,6 +271,41 @@ class NetworkScannerApp:
             row.append(",".join(map(str, ports)) if ports else "None")
         return tuple(row)
 
+    @staticmethod
+    def parse_ports(port_str):
+        """Parse a comma separated list of ports and ranges."""
+        ports = set()
+        for part in port_str.split(','):
+            part = part.strip()
+            if not part:
+                continue
+            if '-' in part:
+                try:
+                    start, end = part.split('-', 1)
+                    start = int(start)
+                    end = int(end)
+                except ValueError:
+                    raise ValueError("Invalid port range")
+                if start <= 0 or end > 65535 or start > end:
+                    raise ValueError("Invalid port range")
+                ports.update(range(start, end + 1))
+            else:
+                try:
+                    p = int(part)
+                except ValueError:
+                    raise ValueError("Invalid port")
+                if p <= 0 or p > 65535:
+                    raise ValueError("Invalid port")
+                ports.add(p)
+        return sorted(ports)
+
+    def apply_port_profile(self, profile):
+        """Fill the ports entry based on a selected profile."""
+        if profile == "Common":
+            self.port_var.set("22,23,80,443,3389")
+        elif profile == "1-1024":
+            self.port_var.set("1-1024")
+
     # ----------------------- Scanning -----------------------
     def run_scan(self):
         self.update_status("Starting network scan...")
@@ -268,6 +314,13 @@ class NetworkScannerApp:
         self.current_devices.clear()
         for row in self.tree.get_children():
             self.tree.delete(row)
+        try:
+            self.selected_ports = self.parse_ports(self.port_var.get())
+        except ValueError:
+            messagebox.showwarning("Input Error", "Enter a valid list or range of ports.")
+            self.scan_button.config(state="normal")
+            self.update_status("Ready")
+            return
         threading.Thread(target=self.thread_scan, daemon=True).start()
 
     def thread_scan(self):
@@ -313,7 +366,8 @@ class NetworkScannerApp:
             if self.show_port_var.get():
                 with ThreadPoolExecutor(max_workers=10) as executor:
                     future_to_device = {
-                        executor.submit(probe_open_ports, device["ip"]): device for device in devices
+                        executor.submit(probe_open_ports, device["ip"], self.selected_ports): device
+                        for device in devices
                     }
                     for future in as_completed(future_to_device):
                         dev = future_to_device[future]
