@@ -1,5 +1,6 @@
 import networkx as nx
 import matplotlib.pyplot as plt
+from networkx.algorithms import community as nx_community
 
 
 def visualize_topology(graph):
@@ -22,4 +23,27 @@ def visualize_topology(graph):
     plt.title("Network Topology")
     plt.axis("off")
     plt.show()
+
+
+def get_node_degrees(graph):
+    """Return a mapping of node to its degree."""
+    if graph is None:
+        return {}
+    return dict(graph.degree())
+
+
+def get_betweenness_centrality(graph):
+    """Return betweenness centrality for each node."""
+    if graph is None:
+        return {}
+    return nx.betweenness_centrality(graph)
+
+
+def detect_communities(graph):
+    """Detect communities using a greedy modularity algorithm."""
+    if graph is None or graph.number_of_nodes() == 0:
+        return []
+    communities = nx_community.greedy_modularity_communities(graph)
+    return [list(c) for c in communities]
+
 

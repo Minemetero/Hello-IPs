@@ -10,7 +10,12 @@ from .block import (block_via_arp_poison, block_via_arp_flood, block_via_arp_tor
                     block_via_dns_amplification)
 from .probe import probe_open_ports, fingerprint_os
 from .utils import save_scan_results, FileViewer
-from .topology import visualize_topology
+from .topology import (
+    visualize_topology,
+    get_node_degrees,
+    get_betweenness_centrality,
+    detect_communities,
+)
 from .utils.log_saver import export_logs
 
 class NetworkScannerApp:
@@ -293,6 +298,14 @@ class NetworkScannerApp:
                 scan_network(ip_range, self.mac_prefixes)
             )
 
+            # Log basic metrics for the discovered topology
+            degrees = get_node_degrees(self.network_graph)
+            centrality = get_betweenness_centrality(self.network_graph)
+            communities = detect_communities(self.network_graph)
+            logger.info(f"Degrees: {degrees}")
+            logger.info(f"Betweenness: {centrality}")
+            logger.info(f"Communities: {communities}")
+
             # Initialize vendor and port info.
             for device in devices:
                 device["vendor"] = "Not Fetched"
@@ -347,6 +360,16 @@ class NetworkScannerApp:
         if not self.network_graph or self.network_graph.number_of_nodes() == 0:
             messagebox.showinfo("Topology", "No topology data available. Please run a scan first.")
             return
+        degrees = get_node_degrees(self.network_graph)
+        centrality = get_betweenness_centrality(self.network_graph)
+        communities = detect_communities(self.network_graph)
+        metrics_msg = (
+            f"Degrees: {degrees}\n"
+            f"Betweenness: {centrality}\n"
+            f"Communities: {communities}"
+        )
+        logger.info(metrics_msg)
+        messagebox.showinfo("Network Metrics", metrics_msg)
         visualize_topology(self.network_graph)
 
     # ----------------------- Blocking -----------------------
