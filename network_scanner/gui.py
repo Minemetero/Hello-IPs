@@ -10,6 +10,7 @@ from .block import (block_via_arp_poison, block_via_arp_flood, block_via_arp_tor
                     block_via_dns_amplification)
 from .probe import probe_open_ports, fingerprint_os
 from .utils import save_scan_results, FileViewer
+from .topology import visualize_topology
 from .utils.log_saver import export_logs
 
 class NetworkScannerApp:
@@ -131,7 +132,10 @@ class NetworkScannerApp:
         self.save_button = ttk.Button(parent, text="Save Results", command=self.save_results)
         self.save_button.grid(row=0, column=1, padx=5, pady=5)
 
-        parent.columnconfigure(2, weight=1)
+        self.topology_button = ttk.Button(parent, text="Show Topology", command=self.show_topology)
+        self.topology_button.grid(row=0, column=2, padx=5, pady=5)
+
+        parent.columnconfigure(3, weight=1)
 
     def create_treeview(self, parent):
         # Container for the treeview + scrollbar
@@ -338,6 +342,12 @@ class NetworkScannerApp:
             messagebox.showinfo("Scan Complete", "No devices found on the network.")
         else:
             messagebox.showinfo("Scan Complete", f"Found {len(self.current_devices)} device(s).")
+
+    def show_topology(self):
+        if not self.network_graph or self.network_graph.number_of_nodes() == 0:
+            messagebox.showinfo("Topology", "No topology data available. Please run a scan first.")
+            return
+        visualize_topology(self.network_graph)
 
     # ----------------------- Blocking -----------------------
     def update_block_parameters(self, *args):
