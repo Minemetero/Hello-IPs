@@ -163,7 +163,8 @@ async def scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
         # Use AsyncSniffer without a timeout so we control when to stop it.
         sniffer = AsyncSniffer(filter="arp and arp[6:2] == 2")
         sniffer.start()
-        await asyncio.to_thread(sendp, packet, verbose=False)
+        for _ in range(max(1, retry)):
+            await asyncio.to_thread(sendp, packet, verbose=False)
         await asyncio.sleep(timeout)
         # sniffer.stop() returns the captured packets.
         answered = sniffer.stop()
@@ -217,23 +218,23 @@ async def scan_network(ip_range, mac_prefixes, max_workers=10, subnet_prefix=24)
                 vendor=device.get("vendor"),
             )
 
-        # Edges for same subnet
-        subnet_map = {
-            dev["ip"]: ipaddress.ip_network(f"{dev['ip']}/{subnet_prefix}", strict=False)
-            for dev in devices
-        }
-        for d1 in devices:
-            for d2 in devices:
-                if d1 is d2:
-                    continue
-                if subnet_map[d1["ip"]] == subnet_map[d2["ip"]]:
-                    graph.add_edge(d1["ip"], d2["ip"], relation="subnet")
+        # Represent each subnet as a node and connect devices to it
+        subnet_nodes = {}
+        for device in devices:
+            net = ipaddress.ip_network(f"{device['ip']}/{subnet_prefix}", strict=False)
+            subnet_key = str(net.network_address)
+            if subnet_key not in subnet_nodes:
+                graph.add_node(subnet_key, type="subnet", label=f"{net.network_address}/{subnet_prefix}")
+                subnet_nodes[subnet_key] = True
+            graph.add_edge(device["ip"], subnet_key, relation="subnet")
 
         # Edges discovered via traceroute
         for device in devices:
             hops = get_traceroute_hops(device["ip"])
             for hop in hops:
-                if graph.has_node(hop) and hop != device["ip"]:
+                if not graph.has_node(hop):
+                    graph.add_node(hop, ip=hop)
+                if hop != device["ip"]:
                     graph.add_edge(device["ip"], hop, relation="traceroute")
 
         logger.info(f"Scan completed. Found {len(devices)} devices")
