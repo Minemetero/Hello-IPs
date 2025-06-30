@@ -130,17 +130,20 @@ class NetworkScannerApp:
         self.save_button = ttk.Button(parent, text="Save Results", command=self.save_results)
         self.save_button.grid(row=0, column=1, padx=5, pady=5)
 
-        ttk.Label(parent, text="Retries:").grid(row=0, column=2, padx=(10, 2), pady=5)
+        options = ttk.Frame(parent)
+        options.grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 5))
+
+        ttk.Label(options, text="Retries:").grid(row=0, column=0, padx=(5, 2))
         self.retry_var = tk.IntVar(value=2)
-        self.retry_entry = ttk.Entry(parent, textvariable=self.retry_var, width=5)
-        self.retry_entry.grid(row=0, column=3, padx=(0, 5), pady=5)
+        self.retry_entry = ttk.Entry(options, textvariable=self.retry_var, width=5)
+        self.retry_entry.grid(row=0, column=1, padx=(0, 10))
 
-        ttk.Label(parent, text="Timeout(s):").grid(row=0, column=4, padx=(10, 2), pady=5)
+        ttk.Label(options, text="Timeout(s):").grid(row=0, column=2, padx=(5, 2))
         self.timeout_var = tk.DoubleVar(value=5)
-        self.timeout_entry = ttk.Entry(parent, textvariable=self.timeout_var, width=5)
-        self.timeout_entry.grid(row=0, column=5, padx=(0, 5), pady=5)
+        self.timeout_entry = ttk.Entry(options, textvariable=self.timeout_var, width=5)
+        self.timeout_entry.grid(row=0, column=3, padx=(0, 5))
 
-        parent.columnconfigure(6, weight=1)
+        parent.columnconfigure(1, weight=1)
 
     def create_treeview(self, parent):
         # Container for the treeview + scrollbar

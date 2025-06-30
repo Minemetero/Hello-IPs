@@ -164,8 +164,12 @@ def get_ip_range():
         raise
 
 async def scan_subnet(subnet, mac_prefixes, timeout=5, retry=2):
-    """Asynchronously scan a subnet for active devices."""
-    results = []
+    """Asynchronously scan a subnet for active devices.
+
+    ``retry`` determines how many times the ARP request is resent. ``timeout``
+    specifies the time to wait for responses.
+    """
+    results = {}
 
     if not check_npcap():
         logger.warning("NPCAP not available, scanning may be limited")
@@ -184,21 +188,22 @@ async def scan_subnet(subnet, mac_prefixes, timeout=5, retry=2):
         await asyncio.sleep(timeout)
         # sniffer.stop() returns the captured packets.
         answered = sniffer.stop()
-        logger.info(f"Found {len(answered)} devices in subnet {subnet}")
+        logger.info(f"Found {len(answered)} responses in subnet {subnet}")
     except Exception as e:
         logger.error(f"Error scanning subnet {subnet}: {e}")
-        return results
+        return list(results.values())
 
     for pkt in answered:
         if ARP in pkt and pkt[ARP].op == 2:
-            device = {
-                'ip': pkt[ARP].psrc,
-                'mac': pkt[ARP].hwsrc,
-                'vendor': get_mac_vendor(pkt[ARP].hwsrc, mac_prefixes),
-                'device_name': get_device_name(pkt[ARP].psrc)
-            }
-            results.append(device)
-    return results
+            ip = pkt[ARP].psrc
+            if ip not in results:
+                results[ip] = {
+                    "ip": ip,
+                    "mac": pkt[ARP].hwsrc,
+                    "vendor": get_mac_vendor(pkt[ARP].hwsrc, mac_prefixes),
+                    "device_name": get_device_name(ip),
+                }
+    return list(results.values())
 
 async def scan_network(
     ip_range,
@@ -209,7 +214,7 @@ async def scan_network(
     retry=2,
 ):
     """Asynchronously scan a network by scanning subnets concurrently."""
-    devices = []
+    devices = {}
     try:
         subnets = list(ip_range.subnets(new_prefix=subnet_prefix))
         logger.info(
@@ -229,10 +234,11 @@ async def scan_network(
             if isinstance(result, Exception):
                 logger.error(f"Error processing subnet: {result}")
             else:
-                devices.extend(result)
+                for dev in result:
+                    devices.setdefault(dev["ip"], dev)
 
-        logger.info(f"Scan completed. Found {len(devices)} devices")
+        logger.info(f"Scan completed. Found {len(devices)} unique devices")
     except Exception as e:
         logger.error(f"Network scan failed: {e}")
 
-    return devices
+    return list(devices.values())
