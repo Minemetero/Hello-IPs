@@ -163,8 +163,12 @@ def get_ip_range():
         logger.error(f"Failed to determine local IP range: {e}")
         raise
 
-async def scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
-    """Asynchronously scan a subnet for active devices."""
+async def scan_subnet(subnet, mac_prefixes, timeout=3, retry=2, progress_callback=None):
+    """Asynchronously scan a subnet for active devices.
+
+    If ``progress_callback`` is provided it will be called for each device
+    as soon as it responds, allowing callers to react in real time.
+    """
     results = []
 
     if not check_npcap():
@@ -174,20 +178,7 @@ async def scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
     broadcast = Ether(dst="ff:ff:ff:ff:ff:ff")
     packet = broadcast / arp_req
 
-    try:
-        # Use AsyncSniffer without a timeout so we control when to stop it.
-        sniffer = AsyncSniffer(filter="arp and arp[6:2] == 2")
-        sniffer.start()
-        await asyncio.to_thread(sendp, packet, verbose=False)
-        await asyncio.sleep(timeout)
-        # sniffer.stop() returns the captured packets.
-        answered = sniffer.stop()
-        logger.info(f"Found {len(answered)} devices in subnet {subnet}")
-    except Exception as e:
-        logger.error(f"Error scanning subnet {subnet}: {e}")
-        return results
-
-    for pkt in answered:
+    def handle_packet(pkt):
         if ARP in pkt and pkt[ARP].op == 2:
             device = {
                 'ip': pkt[ARP].psrc,
@@ -196,10 +187,31 @@ async def scan_subnet(subnet, mac_prefixes, timeout=3, retry=2):
                 'device_name': get_device_name(pkt[ARP].psrc)
             }
             results.append(device)
+            if progress_callback:
+                progress_callback(device)
+
+    try:
+        # Use AsyncSniffer with a packet handler to stream results immediately.
+        sniffer = AsyncSniffer(
+            filter="arp and arp[6:2] == 2", prn=handle_packet, store=False
+        )
+        sniffer.start()
+        await asyncio.to_thread(sendp, packet, verbose=False)
+        await asyncio.sleep(timeout)
+        sniffer.stop()
+        logger.info(f"Found {len(results)} devices in subnet {subnet}")
+    except Exception as e:
+        logger.error(f"Error scanning subnet {subnet}: {e}")
+
     return results
 
-async def scan_network(ip_range, mac_prefixes, max_workers=10, subnet_prefix=24):
-    """Asynchronously scan a network by scanning subnets concurrently."""
+async def scan_network(ip_range, mac_prefixes, max_workers=10, subnet_prefix=24,
+                       progress_callback=None):
+    """Asynchronously scan a network by scanning subnets concurrently.
+
+    ``progress_callback`` is passed to each subnet scan and invoked for every
+    device as soon as it is discovered.
+    """
     devices = []
     try:
         subnets = list(ip_range.subnets(new_prefix=subnet_prefix))
@@ -211,16 +223,18 @@ async def scan_network(ip_range, mac_prefixes, max_workers=10, subnet_prefix=24)
 
         async def worker(subnet):
             async with semaphore:
-                return await scan_subnet(subnet, mac_prefixes)
+                return await scan_subnet(
+                    subnet, mac_prefixes, progress_callback=progress_callback
+                )
 
         tasks = [asyncio.create_task(worker(subnet)) for subnet in subnets]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for result in results:
-            if isinstance(result, Exception):
-                logger.error(f"Error processing subnet: {result}")
-            else:
+        for coro in asyncio.as_completed(tasks):
+            try:
+                result = await coro
                 devices.extend(result)
+            except Exception as e:
+                logger.error(f"Error processing subnet: {e}")
 
         logger.info(f"Scan completed. Found {len(devices)} devices")
     except Exception as e:
