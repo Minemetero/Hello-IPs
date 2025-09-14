@@ -3,8 +3,7 @@ from tkinter import ttk, messagebox, filedialog
 import threading
 import os
 import asyncio
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from .scanner import check_npcap, load_mac_prefixes, get_ip_range, scan_network, get_mac_vendor, logger
+from .scanner import check_npcap, load_mac_prefixes, get_ip_range, scan_network, logger
 from .block import (block_via_arp_poison, block_via_arp_flood, block_via_arp_tornado,
                     block_via_mac_flood, block_via_icmp_unreachable, block_via_tcp_syn_flood,
                     block_via_dns_amplification)
@@ -246,7 +245,8 @@ class NetworkScannerApp:
     def refresh_treeview_data(self):
         for device in self.current_devices:
             row_data = self.build_row_data(device)
-            self.tree.insert("", tk.END, values=row_data)
+            item_id = self.tree.insert("", tk.END, values=row_data)
+            device["tree_id"] = item_id
 
     def build_row_data(self, device):
         row = [device.get("ip", "Unknown"), device.get("mac", "Unknown")]
@@ -259,6 +259,39 @@ class NetworkScannerApp:
             ports = device.get("open_ports", [])
             row.append(",".join(map(str, ports)) if ports else "None")
         return tuple(row)
+
+    def handle_device_found(self, device):
+        """Handle a newly discovered device during scanning.
+
+        Insert the device into the Treeview immediately so the user sees
+        progress in real time.  Additional details such as the OS guess and
+        open ports are gathered in a background thread and the row is updated
+        once the information is ready.
+        """
+
+        def process_device():
+            try:
+                device["os_guess"] = fingerprint_os(device["ip"])
+            except Exception:
+                device["os_guess"] = "Unknown"
+            try:
+                device["open_ports"] = probe_open_ports(device["ip"])
+            except Exception:
+                device["open_ports"] = []
+
+            def update_row():
+                self.tree.item(device["tree_id"], values=self.build_row_data(device))
+
+            self.master.after(0, update_row)
+
+        def add_row():
+            row_data = self.build_row_data(device)
+            item_id = self.tree.insert("", tk.END, values=row_data)
+            device["tree_id"] = item_id
+            self.current_devices.append(device)
+            threading.Thread(target=process_device, daemon=True).start()
+
+        self.master.after(0, add_row)
 
     # ----------------------- Scanning -----------------------
     def run_scan(self):
@@ -283,45 +316,15 @@ class NetworkScannerApp:
             ip_range = get_ip_range()
             self.network = ip_range
 
-            # Step 4: Scan the network asynchronously.
-            devices = asyncio.run(scan_network(ip_range, self.mac_prefixes))
+            # Step 4: Scan the network asynchronously and report devices as found.
+            asyncio.run(
+                scan_network(
+                    ip_range,
+                    self.mac_prefixes,
+                    progress_callback=self.handle_device_found,
+                )
+            )
 
-            # Initialize vendor and port info.
-            for device in devices:
-                device["vendor"] = "Not Fetched"
-                device["open_ports"] = []
-                device["os_guess"] = "Unknown"
-
-            # Step 5: Get vendor info if enabled.
-            if self.show_vendor_var.get():
-                for device in devices:
-                    device["vendor"] = get_mac_vendor(device.get("mac", ""), self.mac_prefixes)
-
-            # Step 6: Get OS guess if enabled using advanced fingerprinting.
-            if self.show_os_var.get():
-                with ThreadPoolExecutor(max_workers=10) as executor:
-                    future_to_device = {
-                        executor.submit(fingerprint_os, device["ip"]): device for device in devices
-                    }
-                    for future in as_completed(future_to_device):
-                        dev = future_to_device[future]
-                        try:
-                            dev["os_guess"] = future.result()
-                        except Exception:
-                            dev["os_guess"] = "Unknown"
-            # Step 7: Scan open ports if enabled.
-            if self.show_port_var.get():
-                with ThreadPoolExecutor(max_workers=10) as executor:
-                    future_to_device = {
-                        executor.submit(probe_open_ports, device["ip"]): device for device in devices
-                    }
-                    for future in as_completed(future_to_device):
-                        dev = future_to_device[future]
-                        try:
-                            dev["open_ports"] = future.result()
-                        except Exception:
-                            dev["open_ports"] = []
-            self.current_devices = devices
             self.master.after(0, self.post_scan_update)
         except Exception as e:
             logger.error(f"An error occurred during scanning: {e}")
@@ -329,12 +332,12 @@ class NetworkScannerApp:
             self.master.after(0, lambda: self.update_status("Ready"))
 
     def post_scan_update(self):
-        self.refresh_treeview_data()
         self.scan_button.config(state="normal")
         if not self.current_devices:
             messagebox.showinfo("Scan Complete", "No devices found on the network.")
         else:
             messagebox.showinfo("Scan Complete", f"Found {len(self.current_devices)} device(s).")
+        self.update_status("Ready")
 
     # ----------------------- Blocking -----------------------
     def update_block_parameters(self, *args):
